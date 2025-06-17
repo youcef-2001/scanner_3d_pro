@@ -17,3 +17,4 @@ Where `XXXXX` can be one of the following (not exhaustive):
 - Correction
 - Addition
 - Review
+- Upgrade
