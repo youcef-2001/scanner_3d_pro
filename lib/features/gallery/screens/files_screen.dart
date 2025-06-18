@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import './home_screen.dart';
 import '../../../shared/widgets/hexagon_logo.dart';
 
 class FilesScreen extends StatelessWidget {
@@ -38,7 +39,12 @@ class FilesScreen extends StatelessWidget {
               title: const Text('Live View',
                   style: TextStyle(color: Colors.greenAccent)),
               onTap: () {
-                // TODO: Naviguer vers la page "Live"
+                Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const LiveDisabled()
+            ),
+          );
               },
             ),
             ListTile(
