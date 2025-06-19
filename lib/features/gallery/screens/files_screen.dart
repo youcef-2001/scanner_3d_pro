@@ -66,7 +66,7 @@ class _FilesScreenState extends State<FilesScreen> {
                 style: GoogleFonts.poppins(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: Colors.white,
+                  color: Colors.white ,
                 ),
               ),
               style: TextButton.styleFrom(
