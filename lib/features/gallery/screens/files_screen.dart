@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../shared/widgets/custom_header.dart';
+import '../../../shared/widgets/custom_drawer.dart';
 import '../models/scan_file.dart';
 import '../services/file_service.dart';
 import 'package:file_picker/file_picker.dart';
