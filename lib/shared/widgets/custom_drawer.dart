@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:scanner_3d_pro/features/gallery/screens/files_screen.dart';
+import 'package:scanner_3d_pro/features/gallery/screens/home_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'hexagon_logo.dart';
 import '../../features/auth/screens/login_screen.dart';
@@ -36,14 +38,25 @@ class CustomDrawer extends StatelessWidget {
             leading: const Icon(Icons.videocam, color: Colors.greenAccent),
             title: const Text('Live View', style: TextStyle(color: Colors.greenAccent)),
             onTap: () {
-              // TODO: Navigation LiveView
+              // naviguer vers la page home_screen.dart
+            Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const LiveDisabled()
+            ),
+          );
             },
           ),
           ListTile(
             leading: const Icon(Icons.folder, color: Colors.blueAccent),
             title: const Text('3D Files', style: TextStyle(color: Colors.blueAccent)),
             onTap: () {
-              Navigator.pop(context);
+                Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const FilesScreen()
+            ),
+          );
             },
           ),
           const Spacer(),

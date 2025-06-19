@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:scanner_3d_pro/shared/widgets/custom_drawer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LiveDisabled extends StatelessWidget {
@@ -11,6 +12,7 @@ class LiveDisabled extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A1A),
+      drawer: const CustomDrawer(),
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -121,7 +123,7 @@ class LiveDisabled extends StatelessWidget {
                 children: [
                   Container(
                     width: MediaQuery.of(context).size.width * 1.0,
-                    height: MediaQuery.of(context).size.width * 0.8,
+                    height: MediaQuery.of(context).size.height * 0.55,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(40),
                       image: const DecorationImage(
