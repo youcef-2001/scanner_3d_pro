@@ -1,13 +1,8 @@
 name: scanner_3d_pro
 description: Professional 3D Scanning Solution
-
-# Empêche la publication accidentelle sur pub.dev
-publish_to: "none"
-
-# Version de ton application (peut être changée via `flutter build --build-name`)
+publish_to: "none" # Empêche la publication accidentelle sur pub.dev
 version: 1.0.0+1
 
-# ✅ Mise à jour obligatoire du SDK Dart pour supporter null safety
 environment:
   sdk: '>=3.0.0 <4.0.0'
 
@@ -15,43 +10,27 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # Icônes style iOS
+  # Design et style
   cupertino_icons: ^1.0.2
-
-  # Appels HTTP performants
-  dio: ^5.0.0
-
-  # Gestion d'état simple et efficace
-  provider: ^6.0.0
-
-  # Accès au système de fichiers
-  path_provider: ^2.0.11
-  supabase_flutter: ^1.10.25
-
-  # ✅ Nouvelle dépendance correcte pour visualisation 3D Web/GLB
-  model_viewer_plus: ^1.0.5
-
-  # Stockage local simple (clé-valeur)
-  shared_preferences: ^2.1.0
-
-  # Accès à l'adresse IP, Wi-Fi, etc.
-  network_info_plus: ^4.0.0
-
-  # Pour charger des fichiers SVG
+  google_fonts: ^6.1.0
   flutter_svg: ^2.0.0
 
-  # Google Fonts intégrés
-  google_fonts: ^6.1.0
+  # Fonctionnalités
+  dio: ^5.0.0
+  provider: ^6.0.0
+  path_provider: ^2.0.11
+  supabase_flutter: ^1.10.25
+  shared_preferences: ^2.1.0
+  network_info_plus: ^4.0.0
+  model_viewer_plus: ^1.0.5
+  file_picker: ^10.2.0
+  uuid: ^4.0.0
 
 dev_dependencies:
-  # Pour les tests unitaires Flutter
   flutter_test:
     sdk: flutter
-
-  # Ensemble de règles de lint recommandé
   flutter_lints: ^2.0.0
 
-# Configuration Flutter spécifique
 flutter:
   uses-material-design: true
 
