@@ -18,7 +18,7 @@ class LiveDisabled extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 32), // Espace en haut
+            const SizedBox(height: 32), // Espac en haut
 
             // Top - profil utilisateur
             Row(
