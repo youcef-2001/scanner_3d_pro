@@ -3,12 +3,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import './home_screen.dart';
 import '../../../shared/widgets/hexagon_logo.dart';
-
+ 
 class FilesScreen extends StatelessWidget {
   const FilesScreen({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) {// tester un merge parfait
     final isMobile = MediaQuery.of(context).size.width < 640;
 
     final user = Supabase.instance.client.auth.currentUser;
