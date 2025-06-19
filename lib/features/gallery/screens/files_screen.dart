@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+<<<<<<< HEAD
 import '../../../shared/widgets/custom_drawer.dart';
 import '../models/scan_file.dart';
 import '../services/file_service.dart';
@@ -36,6 +37,16 @@ class _FilesScreenState extends State<FilesScreen> {
 
   @override
   Widget build(BuildContext context) {
+=======
+import './home_screen.dart';
+import '../../../shared/widgets/hexagon_logo.dart';
+ 
+class FilesScreen extends StatelessWidget {
+  const FilesScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {// tester un merge parfait
+>>>>>>> correctmerge
     final isMobile = MediaQuery.of(context).size.width < 640;
     final uploadService = UploadService();
 
