@@ -3,44 +3,28 @@ import 'package:flutter/services.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import '../models/scan_file.dart';
+import '../widgets/stl_viewer.dart';
+
+
 
 class FileActionsService {
   final _client = Supabase.instance.client;
-  final String bucketName = 'scans';
+  final String bucket = 'scans';
 
-  Future<String> _getSignedUrl(String path) async {
-    final res = await _client.storage
-        .from(bucketName)
-        .createSignedUrl(path, 60 * 10);
-    return res;
-  }
+  void view(BuildContext context, ScanFile file) {
+    final url = _client.storage.from(bucket).getPublicUrl(file.path);
 
-  void view(BuildContext context, ScanFile file) async {
-    final url = await _client.storage
-        .from('scans')
-        .createSignedUrl(file.path, 60 * 10); // valable 10 min
-
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        content: SizedBox(
-          width: 300,
-          height: 300,
-          child: ModelViewer(
-            src: url,
-            alt: '3D Model',
-            autoRotate: true,
-            cameraControls: true,
-          ),
-        ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => STLViewer(fileUrl: url),
       ),
     );
   }
 
   Future<void> share(BuildContext context, ScanFile file) async {
-    final url = await _getSignedUrl(file.path);
+    final url = _client.storage.from(bucket).getPublicUrl(file.path);
 
     await showModalBottomSheet(
       context: context,
@@ -55,12 +39,12 @@ class FileActionsService {
           children: [
             ListTile(
               leading: const Icon(Icons.copy, color: Colors.white),
-              title: const Text('Copier dans le presse-papiers', style: TextStyle(color: Colors.white)),
+              title: const Text('Copier le lien', style: TextStyle(color: Colors.white)),
               onTap: () async {
                 await Clipboard.setData(ClipboardData(text: url));
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Lien copié dans le presse-papiers 📋')),
+                  const SnackBar(content: Text('Lien copié 📋')),
                 );
               },
             ),
@@ -68,7 +52,7 @@ class FileActionsService {
               leading: const Icon(Icons.share, color: Colors.white),
               title: const Text('Partager via une app', style: TextStyle(color: Colors.white)),
               onTap: () {
-                Share.share('Voici mon fichier 3D partagé depuis l\'app :\n$url');
+                Share.share('Voici un fichier 3D :\n$url');
                 Navigator.pop(context);
               },
             ),
@@ -78,7 +62,7 @@ class FileActionsService {
     );
   }
 
-  Future<void> rename(BuildContext context, ScanFile file) async {
+  Future<bool> rename(BuildContext context, ScanFile file) async {
     final controller = TextEditingController(text: file.filename);
     final result = await showDialog<String>(
       context: context,
@@ -92,27 +76,83 @@ class FileActionsService {
       ),
     );
 
-    if (result != null && result != file.filename) {
-      await _client.from('files').update({'filename': result}).eq('id', file.id);
+    if (result != null && result.trim().isNotEmpty && result.trim() != file.filename.trim()) {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Utilisateur non connecté")),
+        );
+        return false;
+      }
+
+      try {
+        final response = await _client.from('files').update({
+          'filename': result.trim(),
+        }).eq('id', file.id).eq('user_id', user.id);
+
+        print('✅ RENAME (DB only): $response');
+        return true;
+      } catch (e) {
+        print('❌ ERROR during rename (DB only): $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Erreur lors du renommage")),
+        );
+      }
     }
+
+    return false;
   }
 
-  Future<void> delete(BuildContext context, ScanFile file) async {
+  Future<bool> delete(BuildContext context, ScanFile file) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Supprimer ?'),
-        content: Text('Supprimer le fichier "${file.filename}" ?'),
+        content: Text('Supprimer "${file.filename}" ?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Supprimer')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     );
 
     if (confirm == true) {
-      await _client.storage.from(bucketName).remove([file.path]);
-      await _client.from('files').delete().eq('id', file.id);
+      final user = Supabase.instance.client.auth.currentUser;
+
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Utilisateur non connecté")),
+        );
+        return false;
+      }
+
+      try {
+        await _client.storage.from(bucket).remove([file.path]);
+
+        final response = await _client
+            .from('files')
+            .delete()
+            .eq('id', file.id)
+            .eq('user_id', user.id); // ✅ important pour respecter la policy DELETE
+
+        print('⛳ DELETE RESULT: $response');
+        return true;
+      } catch (e) {
+        print('❌ ERROR while deleting file from table: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Erreur lors de la suppression")),
+        );
+      }
     }
+
+    return false;
   }
+
+
 }

@@ -29,11 +29,22 @@ class _FilesScreenState extends State<FilesScreen> {
   }
 
   Future<void> _loadFiles() async {
-    final result = await fileService.getUserFiles();
-    setState(() {
-      files = result;
-      isLoading = false;
-    });
+    try {
+      setState(() => isLoading = true);
+      final result = await fileService.getUserFiles();
+
+      setState(() {
+        files = result
+            .where((f) => f.filename.trim().isNotEmpty && f.path.trim().isNotEmpty)
+            .toList();
+        isLoading = false;
+      });
+    } catch (_) {
+      setState(() => isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erreur lors du chargement des fichiers')),
+      );
+    }
   }
 
   @override
@@ -49,10 +60,7 @@ class _FilesScreenState extends State<FilesScreen> {
         foregroundColor: Colors.white,
         title: Text(
           'Fichiers 3D',
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w700,
-            fontSize: 24,
-          ),
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 24),
         ),
         actions: [
           Padding(
@@ -62,14 +70,7 @@ class _FilesScreenState extends State<FilesScreen> {
                 // TODO: connecter l’appareil
               },
               icon: const Icon(Icons.usb, size: 16, color: Colors.white),
-              label: Text(
-                'Connect Device',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white,
-                ),
-              ),
+              label: Text('Connect Device', style: GoogleFonts.poppins(fontSize: 12, color: Colors.white)),
               style: TextButton.styleFrom(
                 backgroundColor: Colors.redAccent,
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -96,82 +97,77 @@ class _FilesScreenState extends State<FilesScreen> {
             ),
             child: Text('+ Upload STL', style: GoogleFonts.poppins(color: Colors.white)),
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadFiles,
-          ),
         ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : files.isEmpty
-          ? Center(
-        child: Text(
-          'Aucun fichier trouvé',
-          style: GoogleFonts.poppins(color: Colors.white),
-        ),
-      )
+          ? Center(child: Text('Aucun fichier trouvé', style: GoogleFonts.poppins(color: Colors.white)))
           : Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        child: GridView.builder(
+        child: ListView.separated(
           itemCount: files.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 1, // chaque fichier occupe toute la largeur
-            mainAxisSpacing: 16,
-            childAspectRatio: 3.5, // ajustable si tu veux plus haut ou plus large
-          ),
+          separatorBuilder: (_, __) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
             final file = files[index];
-            return Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1A),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              padding: const EdgeInsets.all(10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Icon(Icons.insert_drive_file, size: 60, color: Colors.deepPurpleAccent),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      file.filename,
-                      style: GoogleFonts.poppins(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+            return SizedBox(
+              height: 160,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A1A1A),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.insert_drive_file, size: 52, color: Colors.deepPurpleAccent),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            file.filename,
+                            style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.visibility, color: Colors.white),
-                        onPressed: () => actions.view(context, file),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.drive_file_rename_outline, color: Colors.white),
-                        onPressed: () async {
-                          await actions.rename(context, file);
-                          _loadFiles();
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.share_outlined, color: Colors.lightBlueAccent),
-                        onPressed: () => actions.share(context, file),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                        onPressed: () async {
-                          await actions.delete(context, file);
-                          _loadFiles();
-                        },
-                      ),
-                    ],
-                  )
-                ],
+                    const Spacer(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.visibility, color: Colors.white),
+                          onPressed: () => actions.view(context, file),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.drive_file_rename_outline, color: Colors.white),
+                          onPressed: () async {
+                            final renamed = await actions.rename(context, file);
+                            if (renamed) _loadFiles();
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.share_outlined, color: Colors.lightBlueAccent),
+                          onPressed: () => actions.share(context, file),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                          onPressed: () async {
+                            final deleted = await actions.delete(context, file);
+                            if (deleted) _loadFiles();
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             );
           },

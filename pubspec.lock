@@ -340,10 +340,10 @@ packages:
     dependency: "direct main"
     description:
       name: model_viewer_plus
-      sha256: dd69c3551ec16c9d90277a482206ee6bccc1c1a063d76c1b01314e87b4946eca
+      sha256: c41607f283f94eeb9d84a0af95b0d350c24c7bda0b9317bd4913ed568361ee10
       url: "https://pub.dev"
     source: hosted
-    version: "1.9.0"
+    version: "1.9.3"
   nested:
     dependency: transitive
     description:
@@ -822,21 +822,21 @@ packages:
     source: hosted
     version: "2.4.0"
   webview_flutter:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: webview_flutter
-      sha256: ec81f57aa1611f8ebecf1d2259da4ef052281cb5ad624131c93546c79ccc7736
+      sha256: c3e4fe614b1c814950ad07186007eff2f2e5dd2935eba7b9a9a1af8e5885f1ba
       url: "https://pub.dev"
     source: hosted
-    version: "4.9.0"
+    version: "4.13.0"
   webview_flutter_android:
     dependency: transitive
     description:
       name: webview_flutter_android
-      sha256: "47a8da40d02befda5b151a26dba71f47df471cddd91dfdb7802d0a87c5442558"
+      sha256: f6e6afef6e234801da77170f7a1847ded8450778caf2fe13979d140484be3678
       url: "https://pub.dev"
     source: hosted
-    version: "3.16.9"
+    version: "4.7.0"
   webview_flutter_platform_interface:
     dependency: transitive
     description:
