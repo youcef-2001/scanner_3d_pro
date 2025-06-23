@@ -11,7 +11,7 @@ This project is a starting point for a Flutter application designed to use a sca
 The project is under development. Your reviews or suggestions are welcome.
 
 Feel free to reach us at: ```ybaleh13@gmail.com | jas.gagnard@gmail.com```  
-Use the subject: `Scanner 3D Pro|XXXXXX`
+Use the subject: `Scanner 3D Pro|XXXXX`
 
 Where `XXXXX` can be one of the following (not exhaustive):
 - Correction
