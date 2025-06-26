@@ -15,26 +15,39 @@ class LiveDisabled extends StatefulWidget {
 
 class _LiveDisabledState extends State<LiveDisabled> {
   bool isCameraConnected = false;
+  bool isDeviceConnected = false;
   bool isConnecting = false;
   bool isLaserOn = false;
   bool isScanning = false;
   double scanProgress = 0;
 
   Future<void> connectDevice() async {
-    setState(() => isConnecting = true);
+    
     try {
-      final res = await http.get(Uri.parse('$baseUrl/laser/status'));
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      final userEmail = Supabase.instance.client.auth.currentUser?.email;
+      final res = await http.post(
+  Uri.parse('$baseUrl/appairer'),
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: jsonEncode({
+    'user_id': userId,
+    'email': userEmail,
+    // Ajoute d'autres infos utiles ici
+  }),
+);
       if (res.statusCode == 200) {
         final json = jsonDecode(res.body);
         setState(() {
-          isCameraConnected = true;
+          isDeviceConnected = true;
           isLaserOn = (json['status'] == 'on');
         });
       }
     } catch (e) {
       debugPrint('Erreur connexion : $e');
     } finally {
-      setState(() => isConnecting = false);
+      setState(() => isDeviceConnected = false);
     }
   }
 
@@ -188,7 +201,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
                               child: Text(
                                 isConnecting
                                     ? 'Connecting...'
-                                    : isCameraConnected
+                                    : isDeviceConnected
                                         ? 'Disconnect'
                                         : 'Connect Device',
                                 overflow: TextOverflow.ellipsis,
