@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:scanner_3d_pro/shared/widgets/custom_drawer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+const String baseUrl = 'http://192.168.13.1:5000'; // ajuste selon ton réseau
 
 class LiveDisabled extends StatefulWidget {
   const LiveDisabled({Key? key}) : super(key: key);
@@ -16,53 +20,79 @@ class _LiveDisabledState extends State<LiveDisabled> {
   bool isScanning = false;
   double scanProgress = 0;
 
-  void connectDevice() async {
-    if (isCameraConnected) {
-      setState(() {
-        isCameraConnected = false;
-        isLaserOn = false;
-      });
-      return;
+  Future<void> connectDevice() async {
+    setState(() => isConnecting = true);
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/laser/status'));
+      if (res.statusCode == 200) {
+        final json = jsonDecode(res.body);
+        setState(() {
+          isCameraConnected = true;
+          isLaserOn = (json['status'] == 'on');
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur connexion : $e');
+    } finally {
+      setState(() => isConnecting = false);
     }
-
-    setState(() {
-      isConnecting = true;
-    });
-
-    await Future.delayed(const Duration(seconds: 2));
-
-    setState(() {
-      isCameraConnected = true;
-      isConnecting = false;
-    });
   }
 
-  void startScan() async {
+  Future<void> toggleLaser() async {
+    if (!isCameraConnected) return;
+    try {
+      final endpoint = isLaserOn ? '/laser/off' : '/laser/on';
+      final res = await http.post(Uri.parse('$baseUrl$endpoint'));
+      if (res.statusCode == 200) {
+        setState(() => isLaserOn = !isLaserOn);
+      }
+    } catch (e) {
+      debugPrint('Erreur toggle laser : $e');
+    }
+  }
+
+  Future<void> startScan() async {
     if (!isCameraConnected || isScanning) return;
 
     setState(() {
       isScanning = true;
-      isLaserOn = true;
       scanProgress = 0;
+      isLaserOn = true;
     });
 
-    for (int i = 0; i <= 100; i++) {
-      await Future.delayed(const Duration(milliseconds: 30));
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      final token = session?.accessToken;
+      if (token == null) throw Exception('Token non trouvé');
+
+      final res = await http.post(
+        Uri.parse('$baseUrl/scan/start'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        debugPrint('Scan terminé, répertoire: ${data['directory']}');
+      } else {
+        debugPrint('Erreur démarrage scan : ${res.body}');
+      }
+
+      // Simuler progression
+      for (int i = 0; i <= 100; i++) {
+        await Future.delayed(const Duration(milliseconds: 30));
+        setState(() => scanProgress = i / 100);
+      }
+    } catch (e) {
+      debugPrint('Erreur startScan : $e');
+    } finally {
       setState(() {
-        scanProgress = i / 100;
+        isScanning = false;
+        isLaserOn = false;
       });
     }
-
-    setState(() {
-      isScanning = false;
-    });
-  }
-
-  void toggleLaser() {
-    if (!isCameraConnected) return;
-    setState(() {
-      isLaserOn = !isLaserOn;
-    });
   }
 
   @override
@@ -81,7 +111,6 @@ class _LiveDisabledState extends State<LiveDisabled> {
             children: [
               const SizedBox(height: 32),
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     flex: 2,
@@ -157,7 +186,11 @@ class _LiveDisabledState extends State<LiveDisabled> {
                             const SizedBox(width: 8),
                             Flexible(
                               child: Text(
-                                'Device Connected',
+                                isConnecting
+                                    ? 'Connecting...'
+                                    : isCameraConnected
+                                        ? 'Disconnect'
+                                        : 'Connect Device',
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   color: Colors.white,
@@ -181,19 +214,21 @@ class _LiveDisabledState extends State<LiveDisabled> {
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     SizedBox(
                       width: double.infinity,
                       height: 250,
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(40),
-                        child: Image.network(
-                          isCameraConnected
-                              ? 'https://cdn.builder.io/api/v1/image/assets/TEMP/f2e7761cc87b07c06510fc935fca3ba9fbf39f39?placeholderIfAbsent=true&apiKey=91c478f48c2b4da09ef24f4c421f135c'
-                              : 'https://cdn.builder.io/api/v1/image/assets/TEMP/placeholder',
-                          fit: BoxFit.cover,
-                        ),
+                        child: isCameraConnected
+                            ? Image.network(
+                                '$baseUrl/camera/video_feed',
+                                fit: BoxFit.cover,
+                              )
+                            : Image.network(
+                                'https://cdn.builder.io/api/v1/image/assets/TEMP/placeholder',
+                                fit: BoxFit.cover,
+                              ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -221,7 +256,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
                       const SizedBox(height: 8),
                       Text('${(scanProgress * 100).toStringAsFixed(0)}%',
                           style: const TextStyle(color: Colors.white)),
-                    ]
+                    ],
                   ],
                 ),
               ),
@@ -240,10 +275,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              isLaserOn ? Icons.light_mode : Icons.block,
-                              color: Colors.white,
-                            ),
+                            Icon(isLaserOn ? Icons.light_mode : Icons.block, color: Colors.white),
                             const SizedBox(width: 6),
                             Text(
                               isLaserOn ? 'Laser ON' : 'Laser OFF',
