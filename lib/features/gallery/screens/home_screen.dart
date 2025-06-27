@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-const String baseUrl = 'http://192.168.13.1:5000'; // ajuste selon ton réseau
+const String baseUrl = 'http://192.168.96.143:5000'; // ajuste selon ton réseau
 
 class LiveDisabled extends StatefulWidget {
   const LiveDisabled({Key? key}) : super(key: key);
@@ -22,64 +22,94 @@ class _LiveDisabledState extends State<LiveDisabled> {
   double scanProgress = 0;
 
   Future<void> connectDevice() async {
-    
-    try {
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      final userEmail = Supabase.instance.client.auth.currentUser?.email;
-      final res = await http.post(
-  Uri.parse('$baseUrl/appairer'),
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: jsonEncode({
-    'user_id': userId,
-    'email': userEmail,
-    // Ajoute d'autres infos utiles ici
-  }),
-);
-      if (res.statusCode == 200) {
-        final json = jsonDecode(res.body);
-        setState(() {
-          isDeviceConnected = true;
-          isLaserOn = (json['status'] == 'on');
-        });
-      }
-    } catch (e) {
-      debugPrint('Erreur connexion : $e');
-    } finally {
-      setState(() => isDeviceConnected = false);
-    }
-  }
-
-  Future<void> toggleLaser() async {
-    if (!isCameraConnected) return;
-    try {
-      final endpoint = isLaserOn ? '/laser/off' : '/laser/on';
-      final res = await http.post(Uri.parse('$baseUrl$endpoint'));
-      if (res.statusCode == 200) {
-        setState(() => isLaserOn = !isLaserOn);
-      }
-    } catch (e) {
-      debugPrint('Erreur toggle laser : $e');
-    }
-  }
-
-  Future<void> startScan() async {
-    if (!isCameraConnected || isScanning) return;
-
-    setState(() {
-      isScanning = true;
-      scanProgress = 0;
-      isLaserOn = true;
-    });
+    setState(() => isConnecting = true);
 
     try {
       final session = Supabase.instance.client.auth.currentSession;
       final token = session?.accessToken;
-      if (token == null) throw Exception('Token non trouvé');
+
+      if (token == null) throw Exception('Token Supabase manquant');
 
       final res = await http.post(
-        Uri.parse('$baseUrl/scan/start'),
+        Uri.parse('$baseUrl/appairer'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          "device": "scanner_3d_pro",
+        }),
+      );
+
+      if (res.statusCode == 200) {
+        final json = jsonDecode(res.body);
+        setState(() {
+          isDeviceConnected = true;
+          isLaserOn = (json['laser'] == 'on');
+        });
+      } else {
+        debugPrint('Erreur connectDevice : ${res.body}');
+      }
+    } catch (e) {
+      debugPrint('Erreur connexion : $e');
+    } finally {
+      setState(() => isConnecting = false);
+    }
+  }
+
+  Future<void> toggleLaser() async {
+    if (!isDeviceConnected) {
+      debugPrint('Le device n\'est pas connecté');
+      return;
+    }
+
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      final token = session?.accessToken;
+
+      if (token == null) {
+        debugPrint('Token Supabase introuvable');
+        return;
+      }
+
+      final endpoint = isLaserOn ? '/laser/off' : '/laser/on';
+
+      final res = await http.post(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (res.statusCode == 200) {
+        setState(() => isLaserOn = !isLaserOn);
+        debugPrint('Laser toggled: ${isLaserOn ? "ON" : "OFF"}');
+      } else {
+        debugPrint('Erreur laser toggle: ${res.statusCode} - ${res.body}');
+      }
+    } catch (e) {
+      debugPrint('Exception toggleLaser: $e');
+    }
+  }
+
+  Future<void> startAcquisition() async {
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      final token = session?.accessToken;
+
+      if (token == null) {
+        debugPrint('Token Supabase introuvable');
+        return;
+      }
+
+      setState(() {
+        isScanning = true;
+        scanProgress = 0.0;
+      });
+
+      final res = await http.post(
+        Uri.parse('$baseUrl/start-acquisition'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -88,22 +118,25 @@ class _LiveDisabledState extends State<LiveDisabled> {
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        debugPrint('Scan terminé, répertoire: ${data['directory']}');
+        debugPrint('Acquisition lancée: ${data['message']}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Acquisition lancée avec succès')),
+        );
       } else {
-        debugPrint('Erreur démarrage scan : ${res.body}');
-      }
-
-      // Simuler progression
-      for (int i = 0; i <= 100; i++) {
-        await Future.delayed(const Duration(milliseconds: 30));
-        setState(() => scanProgress = i / 100);
+        debugPrint('Erreur startAcquisition: ${res.statusCode} - ${res.body}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors du démarrage de l\'acquisition')),
+        );
       }
     } catch (e) {
-      debugPrint('Erreur startScan : $e');
+      debugPrint('Exception startAcquisition: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur inattendue : $e')),
+      );
     } finally {
       setState(() {
         isScanning = false;
-        isLaserOn = false;
+        scanProgress = 0.0;
       });
     }
   }
@@ -176,7 +209,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
                         constraints: const BoxConstraints(maxWidth: 160),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
-                          color: isCameraConnected
+                          color: isDeviceConnected
                               ? const Color(0xFF10B981)
                               : isConnecting
                                   ? const Color(0xFFFF9800)
@@ -306,7 +339,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: GestureDetector(
-                      onTap: startScan,
+                      onTap: startAcquisition,
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
