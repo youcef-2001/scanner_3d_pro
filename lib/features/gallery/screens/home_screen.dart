@@ -46,6 +46,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
         setState(() {
           isDeviceConnected = true;
           isLaserOn = (json['laser'] == 'on');
+          isCameraConnected = true; // ✅ Affichage de la caméra live activé
         });
       } else {
         debugPrint('Erreur connectDevice : ${res.body}');
@@ -270,6 +271,18 @@ class _LiveDisabledState extends State<LiveDisabled> {
                             ? Image.network(
                                 '$baseUrl/camera/video_feed',
                                 fit: BoxFit.cover,
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return const Center(child: CircularProgressIndicator());
+                                },
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Center(
+                                    child: Text(
+                                      'Erreur de flux vidéo',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  );
+                                },
                               )
                             : Image.network(
                                 'https://cdn.builder.io/api/v1/image/assets/TEMP/placeholder',
