@@ -4,8 +4,8 @@ import 'package:webview_flutter/webview_flutter.dart';
 class CameraStreamPage extends StatefulWidget {
   @override
   _CameraStreamPageState createState() => _CameraStreamPageState();
-  final String url;
-  const CameraStreamPage({Key? key, required this.url}) : super(key: key);
+  final String myurl;
+  const CameraStreamPage({Key? key, required this.myurl}) : super(key: key);
   // Le constructeur prend l'URL du flux vidéo comme paramètre
 
 }
@@ -38,17 +38,33 @@ class _CameraStreamPageState extends State<CameraStreamPage> {
           },
         ),
       )
-      ..loadRequest(Uri.parse(widget.url));
+      ..loadRequest(Uri.parse(widget.myurl));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Flux Camera"),
-        backgroundColor: Colors.blueAccent,
+        title: Text('Camera Stream'),
+        backgroundColor: Colors.black,
       ),
       body: WebViewWidget(controller: _controller),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // Optionnel : ajouter une action pour le bouton flottant
+          _controller.reload();
+          // change the title of the app bar
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Stream reloaded'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        },
+        child: Icon(Icons.refresh),
+        backgroundColor: const Color.fromARGB(255, 129, 129, 129),
+
+      ),
     );
   }
 }
