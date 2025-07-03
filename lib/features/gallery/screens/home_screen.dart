@@ -46,7 +46,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
         setState(() {
           isDeviceConnected = true;
           isLaserOn = (json['laser'] == 'on');
-          isCameraConnected = true; // ✅ Affichage de la caméra live activé
+          isCameraConnected = true;
         });
       } else {
         debugPrint('Erreur connectDevice : ${res.body}');
@@ -55,6 +55,45 @@ class _LiveDisabledState extends State<LiveDisabled> {
       debugPrint('Erreur connexion : $e');
     } finally {
       setState(() => isConnecting = false);
+    }
+  }
+
+  Future<void> disconnectDevice() async {
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      final token = session?.accessToken;
+
+      if (token == null) throw Exception('Token Supabase manquant');
+
+      final res = await http.post(
+        Uri.parse('$baseUrl/deconnecter'), // ⚠️ Change le endpoint si besoin
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (res.statusCode == 200) {
+        setState(() {
+          isDeviceConnected = false;
+          isLaserOn = false;
+          isCameraConnected = false;
+          isScanning = false;
+          scanProgress = 0.0;
+        });
+      } else {
+        debugPrint('Erreur disconnectDevice: ${res.statusCode} - ${res.body}');
+      }
+    } catch (e) {
+      debugPrint('Erreur lors de la déconnexion : $e');
+    }
+  }
+
+  Future<void> connectOrDisconnectDevice() async {
+    if (isDeviceConnected) {
+      await disconnectDevice();
+    } else {
+      await connectDevice();
     }
   }
 
@@ -205,7 +244,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
                   Flexible(
                     flex: 2,
                     child: GestureDetector(
-                      onTap: connectDevice,
+                      onTap: connectOrDisconnectDevice,
                       child: Container(
                         constraints: const BoxConstraints(maxWidth: 160),
                         decoration: BoxDecoration(
