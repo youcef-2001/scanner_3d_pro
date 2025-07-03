@@ -386,7 +386,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
       borderRadius: BorderRadius.circular(20),
       child: AspectRatio(
         aspectRatio: 1.0, // Format carré pour 1280x1280
-        child: CameraStreamPage(url: '$baseUrl/stream'),
+        child: CameraStreamPage(url: '$baseUrl/video_feed'),
       ),
     );
   }
