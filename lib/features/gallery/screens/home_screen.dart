@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-const String baseUrl = 'http://192.168.13.1:5000'; // ajuste selon ton réseau
+const String baseUrl = 'http://192.168.96.143:5000'; // ajuste selon ton réseau
 
 class LiveDisabled extends StatefulWidget {
   const LiveDisabled({Key? key}) : super(key: key);
