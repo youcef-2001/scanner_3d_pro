@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:scanner_3d_pro/features/gallery/widgets/CameraStreamWidget.dart';
 import 'package:scanner_3d_pro/shared/widgets/custom_drawer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async';
 
-const String baseUrl = 'http://192.168.13.1:5000'; // ajuste selon ton réseau
+const String baseUrl = 'http://192.168.13.1:80'; // ajuste selon ton réseau
 
 class LiveDisabled extends StatefulWidget {
   const LiveDisabled({Key? key}) : super(key: key);
@@ -20,7 +22,117 @@ class _LiveDisabledState extends State<LiveDisabled> {
   bool isLaserOn = false;
   bool isScanning = false;
   double scanProgress = 0;
+  
+  // Nouvelles variables pour la gestion de la caméra
+  String cameraConnectionStatus = 'Vérification...';
+  Timer? _cameraStatusTimer;
+  int _cameraRetryCount = 0;
+  static const int maxCameraRetries = 5;
+  String? _lastCameraError;
 
+  @override
+  void initState() {
+    super.initState();
+    _initializeCamera();
+    _startCameraStatusChecking();
+  }
+
+  @override
+  void dispose() {
+    _cameraStatusTimer?.cancel();
+    super.dispose();
+  }
+  int  i = 0;
+  // === GESTION CAMERA ===
+  Future<void> _initializeCamera() async {
+    await _checkCameraStatus();
+
+    if (!isCameraConnected) {
+      await startCamera();
+    }
+  }
+
+  Future<void> _checkCameraStatus() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/camera/status'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          isCameraConnected = data['connected'] ?? false;
+          cameraConnectionStatus = data['status'] ?? 'unknown';
+          _cameraRetryCount = 0;
+          _lastCameraError = null;
+        });
+      } else {
+        _handleCameraConnectionError('Statut HTTP: ${response.statusCode}');
+      }
+    } catch (e) {
+      _handleCameraConnectionError('Erreur de connexion caméra: $e');
+    }
+  }
+
+  Future<void> startCamera() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/camera/start'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          setState(() {
+            isCameraConnected = true;
+            cameraConnectionStatus = 'active';
+            _lastCameraError = null;
+          });
+        }
+      }
+    } catch (e) {
+      _handleCameraConnectionError('Erreur de démarrage caméra: $e');
+    }
+  }
+  
+
+  void _handleCameraConnectionError(String error) {
+    setState(() {
+      _lastCameraError = error;
+      if (_cameraRetryCount < maxCameraRetries) {
+        cameraConnectionStatus = 'Reconnexion... (${_cameraRetryCount + 1}/$maxCameraRetries)';
+        _cameraRetryCount++;
+        // Retry after a delay
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) _checkCameraStatus();
+        });
+      } else {
+        isCameraConnected = false;
+        cameraConnectionStatus = 'Connexion échouée';
+      }
+    });
+    debugPrint('Camera connection error: $error');
+  }
+
+  void _startCameraStatusChecking() {
+    _cameraStatusTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
+      if (mounted && isDeviceConnected) {
+        _checkCameraStatus();
+      }
+    });
+  }
+
+  Future<void> _retryCameraConnection() async {
+    setState(() {
+      _cameraRetryCount = 0;
+      _lastCameraError = null;
+    });
+    await _initializeCamera();
+  }
+
+  // === GESTION DEVICE (code existant) ===
   Future<void> connectDevice() async {
     setState(() => isConnecting = true);
 
@@ -46,8 +158,10 @@ class _LiveDisabledState extends State<LiveDisabled> {
         setState(() {
           isDeviceConnected = true;
           isLaserOn = (json['laser'] == 'on');
-          isCameraConnected = true;
         });
+        
+        // Démarrer la vérification de la caméra après connexion du device
+        await _initializeCamera();
       } else {
         debugPrint('Erreur connectDevice : ${res.body}');
       }
@@ -66,7 +180,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
       if (token == null) throw Exception('Token Supabase manquant');
 
       final res = await http.post(
-        Uri.parse('$baseUrl/deconnecter'), // ⚠️ Change le endpoint si besoin
+        Uri.parse('$baseUrl/deconnecter'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -80,6 +194,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
           isCameraConnected = false;
           isScanning = false;
           scanProgress = 0.0;
+          cameraConnectionStatus = 'Déconnecté';
         });
       } else {
         debugPrint('Erreur disconnectDevice: ${res.statusCode} - ${res.body}');
@@ -134,6 +249,13 @@ class _LiveDisabledState extends State<LiveDisabled> {
   }
 
   Future<void> startAcquisition() async {
+    if (!isCameraConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Caméra non connectée - Impossible de démarrer l\'acquisition')),
+      );
+      return;
+    }
+
     try {
       final session = Supabase.instance.client.auth.currentSession;
       final token = session?.accessToken;
@@ -159,26 +281,138 @@ class _LiveDisabledState extends State<LiveDisabled> {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         debugPrint('Acquisition lancée: ${data['message']}');
+        
+        // Simuler le progrès du scan
+        _simulateScanProgress();
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Acquisition lancée avec succès')),
+          const SnackBar(content: Text('Acquisition lancée avec succès')),
         );
       } else {
         debugPrint('Erreur startAcquisition: ${res.statusCode} - ${res.body}');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du démarrage de l\'acquisition')),
+          const SnackBar(content: Text('Erreur lors du démarrage de l\'acquisition')),
         );
+        setState(() {
+          isScanning = false;
+          scanProgress = 0.0;
+        });
       }
     } catch (e) {
       debugPrint('Exception startAcquisition: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur inattendue : $e')),
       );
-    } finally {
       setState(() {
         isScanning = false;
         scanProgress = 0.0;
       });
     }
+  }
+
+  void _simulateScanProgress() {
+    Timer.periodic(const Duration(milliseconds: 200), (timer) {
+      if (!mounted || !isScanning) {
+        timer.cancel();
+        return;
+      }
+
+      setState(() {
+        scanProgress += 0.02;
+        if (scanProgress >= 1.0) {
+          scanProgress = 1.0;
+          isScanning = false;
+          timer.cancel();
+          _onScanComplete();
+        }
+      });
+    });
+  }
+
+  void _onScanComplete() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Scan terminé avec succès!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  // === WIDGET CAMERA STREAM ===
+  Widget _buildCameraStream() {
+    if (!isDeviceConnected) {
+      return Container(
+        width: double.infinity,
+        height: 300,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(40),
+          color: Colors.grey[800],
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.device_hub_outlined, size: 60, color: Colors.grey),
+              SizedBox(height: 16),
+              Text(
+                'Connectez votre device',
+                style: TextStyle(color: Colors.grey, fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (!isCameraConnected) {
+      return Container(
+        width: double.infinity,
+        height: 300,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(40),
+          color: Colors.grey[800],
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.camera_alt_outlined, size: 60, color: Colors.grey),
+              const SizedBox(height: 16),
+              Text(
+                _lastCameraError != null ? 'Erreur caméra' : 'Caméra non disponible',
+                style: const TextStyle(color: Colors.grey, fontSize: 16),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                cameraConnectionStatus,
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+              if (_cameraRetryCount >= maxCameraRetries) ...[
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _retryCameraConnection,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
+                  child: const Text('Reconnecter'),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: AspectRatio(
+        aspectRatio: 1.0, // Format carré pour 1280x1280
+        child: CameraStreamWidget(streamUrl: '$baseUrl/stream'),
+      ),
+    );
   }
 
   @override
@@ -293,6 +527,8 @@ class _LiveDisabledState extends State<LiveDisabled> {
                 ],
               ),
               const SizedBox(height: 32),
+              
+              // === SECTION CAMERA (améliorée) ===
               Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
@@ -301,46 +537,60 @@ class _LiveDisabledState extends State<LiveDisabled> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
                 child: Column(
                   children: [
+                    // Flux vidéo
                     SizedBox(
                       width: double.infinity,
-                      height: 250,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(40),
-                        child: isCameraConnected
-                            ? Image.network(
-                                '$baseUrl/camera/video_feed',
-                                fit: BoxFit.cover,
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return const Center(child: CircularProgressIndicator());
-                                },
-                                errorBuilder: (context, error, stackTrace) {
-                                  return const Center(
-                                    child: Text(
-                                      'Erreur de flux vidéo',
-                                      style: TextStyle(color: Colors.red),
-                                    ),
-                                  );
-                                },
-                              )
-                            : Image.network(
-                                'https://cdn.builder.io/api/v1/image/assets/TEMP/placeholder',
-                                fit: BoxFit.cover,
-                              ),
-                      ),
+                      child: _buildCameraStream(),
+                     
                     ),
+                    
                     const SizedBox(height: 16),
-                    Text(
-                      isCameraConnected ? 'Camera Active' : 'No Camera Found',
-                      style: TextStyle(
-                        color: isCameraConnected ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    
+                    // Status de la caméra avec indicateur
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: !isDeviceConnected 
+                                ? Colors.grey 
+                                : isCameraConnected 
+                                    ? const Color(0xFF10B981) 
+                                    : const Color(0xFFEF4444),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          !isDeviceConnected
+                              ? 'Device Disconnected'
+                              : isCameraConnected 
+                                  ? 'Camera Active' 
+                                  : 'Camera Disconnected',
+                          style: TextStyle(
+                            color: !isDeviceConnected
+                                ? Colors.grey
+                                : isCameraConnected 
+                                    ? const Color(0xFF10B981) 
+                                    : const Color(0xFFEF4444),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
+                    
                     const SizedBox(height: 8),
+                    
+                    // Description du statut
                     Text(
-                      isCameraConnected ? 'Ready to scan' : 'Connect your device to start scanning',
+                      !isDeviceConnected
+                          ? 'Connectez votre device pour commencer'
+                          : isCameraConnected 
+                              ? 'Résolution: 1280x1280 - Prêt à scanner' 
+                              : 'En attente de connexion caméra...',
                       style: const TextStyle(
                         color: Color(0xFF666666),
                         fontSize: 14,
@@ -348,37 +598,58 @@ class _LiveDisabledState extends State<LiveDisabled> {
                       ),
                       textAlign: TextAlign.center,
                     ),
+                    
+                    // Barre de progression du scan
                     if (isScanning) ...[
                       const SizedBox(height: 16),
-                      LinearProgressIndicator(value: scanProgress, color: Colors.green),
+                      LinearProgressIndicator(
+                        value: scanProgress,
+                        backgroundColor: Colors.grey[700],
+                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
+                      ),
                       const SizedBox(height: 8),
-                      Text('${(scanProgress * 100).toStringAsFixed(0)}%',
-                          style: const TextStyle(color: Colors.white)),
+                      Text(
+                        'Scan en cours... ${(scanProgress * 100).toStringAsFixed(0)}%',
+                        style: const TextStyle(color: Colors.white),
+                      ),
                     ],
                   ],
                 ),
               ),
+              
               const SizedBox(height: 16),
+              
+              // === BOUTONS CONTROLES ===
               Row(
                 children: [
                   Expanded(
                     child: GestureDetector(
-                      onTap: toggleLaser,
+                      onTap: isDeviceConnected ? toggleLaser : null,
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
-                          color: isLaserOn ? Colors.red : const Color(0xFF333333),
+                          color: !isDeviceConnected
+                              ? const Color(0xFF1A1A1A)
+                              : isLaserOn 
+                                  ? Colors.red 
+                                  : const Color(0xFF333333),
                           borderRadius: BorderRadius.circular(8),
+                          border: !isDeviceConnected
+                              ? Border.all(color: Colors.grey[600]!)
+                              : null,
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(isLaserOn ? Icons.light_mode : Icons.block, color: Colors.white),
+                            Icon(
+                              isLaserOn ? Icons.light_mode : Icons.block,
+                              color: isDeviceConnected ? Colors.white : Colors.grey,
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               isLaserOn ? 'Laser ON' : 'Laser OFF',
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: isDeviceConnected ? Colors.white : Colors.grey,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -391,18 +662,27 @@ class _LiveDisabledState extends State<LiveDisabled> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: GestureDetector(
-                      onTap: startAcquisition,
+                      onTap: (isDeviceConnected && isCameraConnected && !isScanning) 
+                          ? startAcquisition 
+                          : null,
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEF4444),
+                          color: (isDeviceConnected && isCameraConnected && !isScanning)
+                              ? const Color(0xFFEF4444)
+                              : const Color(0xFF1A1A1A),
                           borderRadius: BorderRadius.circular(8),
+                          border: !(isDeviceConnected && isCameraConnected && !isScanning)
+                              ? Border.all(color: Colors.grey[600]!)
+                              : null,
                         ),
-                        child: const Center(
+                        child: Center(
                           child: Text(
-                            'Start Scan',
+                            isScanning ? 'Scanning...' : 'Start Scan',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: (isDeviceConnected && isCameraConnected && !isScanning)
+                                  ? Colors.white
+                                  : Colors.grey,
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
                             ),
