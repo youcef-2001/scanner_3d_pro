@@ -1,60 +1,54 @@
-
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-class CameraStreamWidget extends StatefulWidget {
-  final String streamUrl;
-
-  const CameraStreamWidget({Key? key, required this.streamUrl}) : super(key: key);
-
+class CameraStreamPage extends StatefulWidget {
   @override
-  State<CameraStreamWidget> createState() => _CameraStreamWidgetState();
+  _CameraStreamPageState createState() => _CameraStreamPageState();
+  final String url;
+  const CameraStreamPage({Key? key, required this.url}) : super(key: key);
+  // Le constructeur prend l'URL du flux vidéo comme paramètre
+
 }
 
-class _CameraStreamWidgetState extends State<CameraStreamWidget> {
+class _CameraStreamPageState extends State<CameraStreamPage> {
   late final WebViewController _controller;
 
   @override
-void initState() {
-  super.initState();
-
-  final htmlContent = '''
-  <!DOCTYPE html>
-  <html>
-  <head>
-    <style>
-      body {
-        margin: 0;
-        background-color: black;
-        overflow: hidden;
-      }
-      img {
-        width: 100vw;
-        height: 100vh;
-        object-fit: cover;
-      }
-    </style>
-  </head>
-  <body>
-    <img src="${widget.streamUrl}" />
-  </body>
-  </html>
-  ''';
-
-  _controller = WebViewController()
-    ..setJavaScriptMode(JavaScriptMode.unrestricted)
-    ..loadHtmlString(htmlContent);
-}
-
+  void initState() {
+    super.initState();
+    
+    // Initialisation du contrôleur WebView
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0x00000000))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onProgress: (int progress) {
+            // Optionnel : afficher le progrès de chargement
+            debugPrint('WebView is loading (progress : $progress%)');
+          },
+          onPageStarted: (String url) {
+            debugPrint('Page started loading: $url');
+          },
+          onPageFinished: (String url) {
+            debugPrint('Page finished loading: $url');
+          },
+          onWebResourceError: (WebResourceError error) {
+            debugPrint('Page resource error: ${error.description}');
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.url));
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(40),
-      child: AspectRatio(
-        aspectRatio: 1.0,
-        child: WebViewWidget(controller: _controller),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Flux Camera"),
+        backgroundColor: Colors.blueAccent,
       ),
+      body: WebViewWidget(controller: _controller),
     );
   }
 }

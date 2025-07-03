@@ -46,10 +46,6 @@ class _LiveDisabledState extends State<LiveDisabled> {
   // === GESTION CAMERA ===
   Future<void> _initializeCamera() async {
     await _checkCameraStatus();
-
-    if (!isCameraConnected) {
-      await startCamera();
-    }
   }
 
   Future<void> _checkCameraStatus() async {
@@ -75,27 +71,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
     }
   }
 
-  Future<void> startCamera() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/camera/start'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true) {
-          setState(() {
-            isCameraConnected = true;
-            cameraConnectionStatus = 'active';
-            _lastCameraError = null;
-          });
-        }
-      }
-    } catch (e) {
-      _handleCameraConnectionError('Erreur de démarrage caméra: $e');
-    }
-  }
+ 
   
 
   void _handleCameraConnectionError(String error) {
@@ -410,7 +386,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
       borderRadius: BorderRadius.circular(20),
       child: AspectRatio(
         aspectRatio: 1.0, // Format carré pour 1280x1280
-        child: CameraStreamWidget(streamUrl: '$baseUrl/stream'),
+        child: CameraStreamPage(url: '$baseUrl/stream'),
       ),
     );
   }
