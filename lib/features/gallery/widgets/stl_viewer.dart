@@ -26,7 +26,7 @@ class _STLViewerState extends State<STLViewer> {
           setState(() => _isLoading = false);
         },
       ))
-      ..loadFlutterAsset('assets/html/viewer2.html');
+      ..loadFlutterAsset('assets/html/viewer.html');
   }
 
   @override

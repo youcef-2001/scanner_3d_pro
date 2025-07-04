@@ -580,7 +580,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
   }
 
   void _ScanProgress() {
-    Timer.periodic(const Duration(milliseconds: 200), (timer) {
+    Timer.periodic(const Duration(milliseconds: 6000), (timer) {
       if (!mounted || !isScanning) {
         timer.cancel();
         return;
