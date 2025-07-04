@@ -55,28 +55,14 @@ class _FilesScreenState extends State<FilesScreen> {
       drawer: const CustomDrawer(),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        elevation: 0,
+        elevation: 25,
         foregroundColor: Colors.white,
         title: Text(
           'Fichiers 3D',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 24),
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 16),
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: TextButton.icon(
-              onPressed: () {
-                // TODO: connecter l’appareil
-              },
-              icon: const Icon(Icons.usb, size: 16, color: Colors.white),
-              label: Text('Connect Device', style: GoogleFonts.poppins(fontSize: 12, color: Colors.white)),
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-            ),
-          ),
+          
           TextButton(
             onPressed: () async {
               final result = await FilePicker.platform.pickFiles(
