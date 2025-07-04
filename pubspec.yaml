@@ -41,6 +41,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/html/viewer.html
+    - assets/html/viewer2.html
+    - assets/html/viewer_updated.html
     - assets/icon/app_icon2.png
     - assets/icon/
 

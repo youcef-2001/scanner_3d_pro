@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualiseur STL et XYZ</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .main-content {
+            flex: 1;
+            position: relative;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+
+        .controls {
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        .control-group h3 {
+            margin-bottom: 10px;
+            color: #4ecdc4;
+            font-size: 16px;
+        }
+
+        .control-item {
+            margin-bottom: 10px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #4ecdc4;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        input[type="color"] {
+            width: 100%;
+            height: 40px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(78, 205, 196, 0.3);
+        }
+
+        .info-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .info-panel h3 {
+            color: #ff6b6b;
+            margin-bottom: 10px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .viewer {
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #2c3e50 0%, #34495e 100%);
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 1000;
+        }
+
+        .loading.hidden {
+            display: none;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #4ecdc4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .format-info {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .format-info h3 {
+            color: #ffd93d;
+            margin-bottom: 10px;
+        }
+
+        .format-info ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .format-info li {
+            margin-bottom: 5px;
+            font-size: 13px;
+            opacity: 0.8;
+        }
+
+        .format-info li:before {
+            content: "•";
+            color: #4ecdc4;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="header">
+                <h1>Visualiseur 3D</h1>
+                <p>STL & XYZ Support</p>
+            </div>
+
+            <div class="format-info">
+                <h3>Formats supportés</h3>
+                <ul>
+                    <li>STL - Modèles 3D triangulaires</li>
+                    <li>XYZ - Nuages de points</li>
+                </ul>
+            </div>
+
+        
+
+            <div class="controls">
+                <div class="control-group">
+                    <h3>🎨 Rendu</h3>
+                    <div class="control-item">
+                        <label for="colorPicker">Couleur:</label>
+                        <input type="color" id="colorPicker" value="#4ecdc4">
+                    </div>
+                    <div class="control-item">
+                        <label for="opacity">Opacité: <span id="opacityValue">100%</span></label>
+                        <input type="range" id="opacity" min="10" max="100" value="100">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>💡 Éclairage</h3>
+                    <div class="control-item">
+                        <label for="ambientLight">Éclairage ambiant: <span id="ambientValue">50%</span></label>
+                        <input type="range" id="ambientLight" min="0" max="100" value="50">
+                    </div>
+                    <div class="control-item">
+                        <label for="directionalLight">Éclairage directionnel: <span id="directionalValue">80%</span></label>
+                        <input type="range" id="directionalLight" min="0" max="100" value="80">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>🔧 Nuage de points</h3>
+                    <div class="control-item">
+                        <label for="pointSize">Taille des points: <span id="pointSizeValue">2</span></label>
+                        <input type="range" id="pointSize" min="1" max="10" value="2">
+                    </div>
+                </div>
+
+                <button class="btn" id="resetCamera">📷 Réinitialiser vue</button>
+                <button class="btn" id="toggleWireframe">🔗 Mode fil de fer</button>
+            </div>
+
+            <div class="info-panel">
+                <h3>📊 Informations</h3>
+                <div class="info-item">
+                    <span>Fichier:</span>
+                    <span id="fileName">Aucun</span>
+                </div>
+                <div class="info-item">
+                    <span>Type:</span>
+                    <span id="fileType">-</span>
+                </div>
+                <div class="info-item">
+                    <span>Points/Triangles:</span>
+                    <span id="elementCount">0</span>
+                </div>
+                <div class="info-item">
+                    <span>Taille fichier:</span>
+                    <span id="fileSize">-</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="loading hidden" id="loading">
+                <div class="spinner"></div>
+                <p>Chargement du modèle...</p>
+            </div>
+            <div class="viewer" id="viewer"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        class Model3DViewer {
+            constructor() {
+                this.scene = null;
+                this.camera = null;
+                this.renderer = null;
+                this.controls = null;
+                this.currentMesh = null;
+                this.ambientLight = null;
+                this.directionalLight = null;
+                this.isWireframe = false;
+                this.currentFileType = null;
+                
+                this.init();
+                this.setupEventListeners();
+            }
+
+            init() {
+                // Scene
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x2c3e50);
+
+                // Camera
+                this.camera = new THREE.PerspectiveCamera(
+                    75,
+                    window.innerWidth / window.innerHeight,
+                    0.1,
+                    1000
+                );
+                this.camera.position.set(5, 5, 5);
+
+                // Renderer
+                this.renderer = new THREE.WebGLRenderer({ antialias: true });
+                this.renderer.setSize(window.innerWidth - 300, window.innerHeight);
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                document.getElementById('viewer').appendChild(this.renderer.domElement);
+
+                // Controls
+                this.setupControls();
+
+                // Lights
+                this.setupLights();
+
+                // Grid
+                this.setupGrid();
+
+                // Animation loop
+                this.animate();
+
+                // Resize handler
+                window.addEventListener('resize', () => this.onWindowResize());
+            }
+
+            setupControls() {
+                // Simple orbit controls implementation
+                let isDragging = false;
+                let previousMousePosition = { x: 0, y: 0 };
+                let spherical = new THREE.Spherical();
+                spherical.setFromVector3(this.camera.position);
+
+                this.renderer.domElement.addEventListener('mousedown', (e) => {
+                    isDragging = true;
+                    previousMousePosition = { x: e.clientX, y: e.clientY };
+                });
+
+                this.renderer.domElement.addEventListener('mousemove', (e) => {
+                    if (!isDragging) return;
+
+                    const deltaMove = {
+                        x: e.clientX - previousMousePosition.x,
+                        y: e.clientY - previousMousePosition.y
+                    };
+
+                    spherical.theta -= deltaMove.x * 0.01;
+                    spherical.phi += deltaMove.y * 0.01;
+                    spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+
+                    this.camera.position.setFromSpherical(spherical);
+                    this.camera.lookAt(0, 0, 0);
+
+                    previousMousePosition = { x: e.clientX, y: e.clientY };
+                });
+
+                this.renderer.domElement.addEventListener('mouseup', () => {
+                    isDragging = false;
+                });
+
+                this.renderer.domElement.addEventListener('wheel', (e) => {
+                    spherical.radius += e.deltaY * 0.01;
+                    spherical.radius = Math.max(1, Math.min(50, spherical.radius));
+                    this.camera.position.setFromSpherical(spherical);
+                    this.camera.lookAt(0, 0, 0);
+                });
+            }
+
+            setupLights() {
+                // Ambient light
+                this.ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+                this.scene.add(this.ambientLight);
+
+                // Directional light
+                this.directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                this.directionalLight.position.set(5, 5, 5);
+                this.directionalLight.castShadow = true;
+                this.scene.add(this.directionalLight);
+            }
+
+            setupGrid() {
+                const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x444444);
+                this.scene.add(gridHelper);
+
+                const axesHelper = new THREE.AxesHelper(5);
+                this.scene.add(axesHelper);
+            }
+
+            setupEventListeners() {
+                // Controls
+                document.getElementById('colorPicker').addEventListener('input', (e) => {
+                    this.updateColor(e.target.value);
+                });
+
+                document.getElementById('opacity').addEventListener('input', (e) => {
+                    document.getElementById('opacityValue').textContent = e.target.value + '%';
+                    this.updateOpacity(e.target.value / 100);
+                });
+
+                document.getElementById('ambientLight').addEventListener('input', (e) => {
+                    document.getElementById('ambientValue').textContent = e.target.value + '%';
+                    this.ambientLight.intensity = e.target.value / 100;
+                });
+
+                document.getElementById('directionalLight').addEventListener('input', (e) => {
+                    document.getElementById('directionalValue').textContent = e.target.value + '%';
+                    this.directionalLight.intensity = e.target.value / 100;
+                });
+
+                document.getElementById('pointSize').addEventListener('input', (e) => {
+                    document.getElementById('pointSizeValue').textContent = e.target.value;
+                    this.updatePointSize(parseInt(e.target.value));
+                });
+
+                document.getElementById('resetCamera').addEventListener('click', () => {
+                    this.resetCamera();
+                });
+
+                document.getElementById('toggleWireframe').addEventListener('click', () => {
+                    this.toggleWireframe();
+                });
+            }
+
+
+            loadFile(file) {
+                const loading = document.getElementById('loading');
+                loading.classList.remove('hidden');
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const extension = file.name.split('.').pop().toLowerCase();
+                    
+                    if (extension === 'stl') {
+                        this.loadSTL(e.target.result, file);
+                    } else if (extension === 'xyz') {
+                        this.loadXYZ(e.target.result, file);
+                    } else {
+                        alert('Format non supporté. Utilisez des fichiers .stl ou .xyz');
+                        loading.classList.add('hidden');
+                        return;
+                    }
+
+                    this.updateFileInfo(file, extension);
+                };
+
+                if (file.name.endsWith('.stl')) {
+                    reader.readAsArrayBuffer(file);
+                } else {
+                    reader.readAsText(file);
+                }
+            }
+
+            loadSTL(data, file) {
+                try {
+                    const geometry = this.parseSTL(data);
+                    const material = new THREE.MeshLambertMaterial({ 
+                        color: 0x4ecdc4,
+                        side: THREE.DoubleSide
+                    });
+                    
+                    this.createMesh(geometry, material, 'STL', geometry.attributes.position.count / 3);
+                    this.currentFileType = 'mesh';
+                } catch (error) {
+                    console.error('Erreur lors du chargement STL:', error);
+                    alert('Erreur lors du chargement du fichier STL');
+                }
+                
+                document.getElementById('loading').classList.add('hidden');
+            }
+
+            loadXYZ(data, file) {
+                try {
+                    const points = this.parseXYZ(data);
+                    const geometry = new THREE.BufferGeometry();
+                    const positions = new Float32Array(points.length * 3);
+                    
+                    for (let i = 0; i < points.length; i++) {
+                        positions[i * 3] = points[i].x;
+                        positions[i * 3 + 1] = points[i].y;
+                        positions[i * 3 + 2] = points[i].z;
+                    }
+                    
+                    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                    
+                    const material = new THREE.PointsMaterial({
+                        color: 0x4ecdc4,
+                        size: 2
+                    });
+                    
+                    this.createPointCloud(geometry, material, 'XYZ', points.length);
+                    this.currentFileType = 'points';
+                } catch (error) {
+                    console.error('Erreur lors du chargement XYZ:', error);
+                    alert('Erreur lors du chargement du fichier XYZ');
+                }
+                
+                document.getElementById('loading').classList.add('hidden');
+            }
+
+            parseSTL(data) {
+                const geometry = new THREE.BufferGeometry();
+                const dataview = new DataView(data);
+                
+                // Skip header (80 bytes)
+                const triangles = dataview.getUint32(80, true);
+                
+                const vertices = [];
+                const normals = [];
+                
+                for (let i = 0; i < triangles; i++) {
+                    const offset = 84 + i * 50;
+                    
+                    // Normal vector
+                    const nx = dataview.getFloat32(offset, true);
+                    const ny = dataview.getFloat32(offset + 4, true);
+                    const nz = dataview.getFloat32(offset + 8, true);
+                    
+                    // Vertices
+                    for (let j = 0; j < 3; j++) {
+                        const vOffset = offset + 12 + j * 12;
+                        vertices.push(
+                            dataview.getFloat32(vOffset, true),
+                            dataview.getFloat32(vOffset + 4, true),
+                            dataview.getFloat32(vOffset + 8, true)
+                        );
+                        normals.push(nx, ny, nz);
+                    }
+                }
+                
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+                geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+                
+                return geometry;
+            }
+
+            parseXYZ(data) {
+                const lines = data.trim().split('\n');
+                const points = [];
+                
+                for (const line of lines) {
+                    const coords = line.trim().split(' ');
+                    if (coords.length >= 3) {
+                        const x = parseFloat(coords[0]);
+                        const y = parseFloat(coords[1]);
+                        const z = parseFloat(coords[2]);
+                        
+                        if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
+                            points.push({ x, y, z });
+                        }
+                    }
+                }
+                
+                return points;
+            }
+
+            createMesh(geometry, material, type, count) {
+                this.clearScene();
+                
+                this.currentMesh = new THREE.Mesh(geometry, material);
+                this.currentMesh.castShadow = true;
+                this.currentMesh.receiveShadow = true;
+                
+                this.scene.add(this.currentMesh);
+                this.centerAndScaleModel();
+                
+                document.getElementById('elementCount').textContent = count + ' triangles';
+            }
+
+            createPointCloud(geometry, material, type, count) {
+                this.clearScene();
+                
+                this.currentMesh = new THREE.Points(geometry, material);
+                this.scene.add(this.currentMesh);
+                this.centerAndScaleModel();
+                
+                document.getElementById('elementCount').textContent = count + ' points';
+            }
+
+            clearScene() {
+                if (this.currentMesh) {
+                    this.scene.remove(this.currentMesh);
+                    this.currentMesh = null;
+                }
+            }
+
+            centerAndScaleModel() {
+                if (!this.currentMesh) return;
+                
+                const box = new THREE.Box3().setFromObject(this.currentMesh);
+                const center = box.getCenter(new THREE.Vector3());
+                const size = box.getSize(new THREE.Vector3());
+                
+                this.currentMesh.position.sub(center);
+                
+                const maxSize = Math.max(size.x, size.y, size.z);
+                const scale = 5 / maxSize;
+                this.currentMesh.scale.setScalar(scale);
+                
+                this.resetCamera();
+            }
+
+            updateColor(color) {
+                if (this.currentMesh && this.currentMesh.material) {
+                    this.currentMesh.material.color.setHex(color.replace('#', '0x'));
+                }
+            }
+
+            updateOpacity(opacity) {
+                if (this.currentMesh && this.currentMesh.material) {
+                    this.currentMesh.material.transparent = opacity < 1;
+                    this.currentMesh.material.opacity = opacity;
+                }
+            }
+
+            updatePointSize(size) {
+                if (this.currentMesh && this.currentMesh.material && this.currentFileType === 'points') {
+                    this.currentMesh.material.size = size;
+                }
+            }
+
+            resetCamera() {
+                this.camera.position.set(8, 8, 8);
+                this.camera.lookAt(0, 0, 0);
+            }
+
+            toggleWireframe() {
+                if (this.currentMesh && this.currentMesh.material && this.currentFileType === 'mesh') {
+                    this.isWireframe = !this.isWireframe;
+                    this.currentMesh.material.wireframe = this.isWireframe;
+                }
+            }
+
+            updateFileInfo(file, type) {
+                document.getElementById('fileName').textContent = file.name;
+                document.getElementById('fileType').textContent = type.toUpperCase();
+                document.getElementById('fileSize').textContent = this.formatFileSize(file.size);
+            }
+
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            onWindowResize() {
+                this.camera.aspect = (window.innerWidth - 300) / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth - 300, window.innerHeight);
+            }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+
+        // Initialize the viewer
+
+
+
+       
+        function loadModel(viewer, fileUrl) {
+            const loading = document.getElementById('loading');
+            loading.classList.remove('hidden');
+
+            fetch(fileUrl)
+                .then(response => response.blob())
+                .then(blob => {
+                    const file = new File([blob], 'model.stl', { type: blob.type });
+                    viewer.loadFile(file);
+                })
+                .catch(error => {
+                    console.error('Erreur lors du chargement du modèle:', error);
+                    alert('Erreur lors du chargement du modèle');
+                })
+                .finally(() => {
+                    loading.classList.add('hidden');
+                });
+        }
+
+    </script>
+</body>
+</html>

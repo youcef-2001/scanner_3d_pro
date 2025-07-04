@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Potree XYZ Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Potree CSS -->
+  <link rel="stylesheet" href="https://cdn.potree.org/potree/resources/css/potree.css" />
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; }
+    #potree_render_area { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="potree_render_area"></div>
+
+  <!-- Potree JS -->
+  <script src="https://cdn.potree.org/potree/build/potree/potree.js"></script>
+
+  <script>
+    let viewer;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      viewer = new Potree.Viewer(document.getElementById("potree_render_area"));
+      viewer.setEDLEnabled(true);
+      viewer.setFOV(60);
+      viewer.setPointBudget(1_000_000);
+      viewer.setBackground("gradient");
+      viewer.loadSettingsFromURL();
+    });
+
+    window.loadModel = async function(fileUrl) {
+      try {
+        const response = await fetch(fileUrl);
+        if (!response.ok) throw new Error("Erreur lors du chargement du fichier");
+
+        const text = await response.text();
+        const lines = text.trim().split('\n');
+        const positions = [];
+
+        for (const line of lines) {
+          const parts = line.trim().split(/\s+/);
+          if (parts.length >= 3) {
+            const x = parseFloat(parts[0]);
+            const y = parseFloat(parts[1]);
+            const z = parseFloat(parts[2]);
+            if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
+              positions.push(x, y, z);
+            }
+          }
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        const material = new THREE.PointsMaterial({
+          size: 0.3,
+          color: 0x00ffcc,
+          sizeAttenuation: true
+        });
+
+        const points = new THREE.Points(geometry, material);
+        viewer.scene.scene.add(points);
+        viewer.fitToScreen();
+      } catch (error) {
+        console.error("Erreur :", error);
+        alert("Impossible de charger le fichier XYZ."+error.message);
+      }
+    };
+  </script>
+</body>
+</html>

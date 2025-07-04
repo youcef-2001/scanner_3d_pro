@@ -22,11 +22,11 @@ class _STLViewerState extends State<STLViewer> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(NavigationDelegate(
         onPageFinished: (url) async {
-          await _controller.runJavaScript("loadSTL('${widget.fileUrl}');");
+          await _controller.runJavaScript("loadModel('${widget.fileUrl}');");
           setState(() => _isLoading = false);
         },
       ))
-      ..loadFlutterAsset('assets/html/viewer.html');
+      ..loadFlutterAsset('assets/html/viewer2.html');
   }
 
   @override

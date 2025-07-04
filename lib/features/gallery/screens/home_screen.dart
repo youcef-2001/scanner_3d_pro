@@ -22,7 +22,8 @@ class _LiveDisabledState extends State<LiveDisabled> {
   bool isConnecting = false;
   bool isLaserOn = false;
   bool isScanning = false;
-  double scanProgress = 0;
+  int scanProgress = 0;// sera le scan step du backend
+  bool scan_done = false;
   String width_camera = '';
   String height_camera = '';
   double distance = 0.0;
@@ -55,6 +56,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
   Future<void> _initializeCamera() async {
     await _checkCameraStatus();
   }
+  
 
   Future<void> _checkCameraStatus() async {
     try {
@@ -189,7 +191,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
           isLaserOn = false;
           isCameraConnected = false;
           isScanning = false;
-          scanProgress = 0.0;
+          scanProgress = 0;
           cameraConnectionStatus = 'Déconnecté';
         });
       } else {
@@ -244,6 +246,15 @@ class _LiveDisabledState extends State<LiveDisabled> {
     }
   }
 
+
+  // === GESTION ACQUISITION ===
+  // Cette fonction démarre l'acquisition du scan 3D
+  // Elle envoie une requête POST à l'API pour démarrer l'acquisition
+  // et gère le progrès du scan en utilisant un Timer pour simuler le progrès
+  // et afficher une barre de progression
+  // Elle gère également les erreurs et l'état de la caméra
+  // et affiche des messages appropriés à l'utilisateur
+
   Future<void> startAcquisition() async {
     if (!isCameraConnected) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -265,7 +276,8 @@ class _LiveDisabledState extends State<LiveDisabled> {
 
       setState(() {
         isScanning = true;
-        scanProgress = 0.0;
+        scan_done = false;
+        scanProgress = 0;
       });
 
       final res = await http.post(
@@ -274,14 +286,21 @@ class _LiveDisabledState extends State<LiveDisabled> {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
+        body: jsonEncode({
+          "device": "scanner_3d_pro",
+          "distance": distance.toString(),
+          "userid": Supabase.instance.client.auth.currentUser?.id,
+          "username": Supabase.instance.client.auth.currentUser?.userMetadata?['name'] ?? Supabase.instance.client.auth.currentUser?.email ?? 'Utilisateur',
+
+        }),
       );
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         debugPrint('Acquisition lancée: ${data['message']}');
 
-        // Simuler le progrès du scan
-        _simulateScanProgress();
+        //  Timer pour suivre le progrès du scan
+        _ScanProgress();
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Acquisition lancée avec succès')),
@@ -294,7 +313,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
         );
         setState(() {
           isScanning = false;
-          scanProgress = 0.0;
+          scanProgress = 0;
         });
       }
     } catch (e) {
@@ -304,7 +323,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
       );
       setState(() {
         isScanning = false;
-        scanProgress = 0.0;
+        scanProgress = 0;
       });
     }
   }
@@ -342,25 +361,37 @@ class _LiveDisabledState extends State<LiveDisabled> {
 
 
 
-  void _simulateScanProgress() {
+  void _ScanProgress() {
     Timer.periodic(const Duration(milliseconds: 200), (timer) {
       if (!mounted || !isScanning) {
         timer.cancel();
         return;
       }
+       // fait une requet vers le backend pour avoir le step et le statut du scan
+      /*"status": is_acquisition_running,
+                    "step" : acquisition_step if is_acquisition_running else 0,
+                    "ackDone": ackDone if is_acquisition_running else False*/
+      http.get(Uri.parse('$baseUrl/acquisition-status')).then((response) {
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          setState(() {
+            scanProgress = data['step'] ?? 0;
+            isScanning = data['status'] ?? false;
+            scan_done = data['ackDone'] ?? false;
+          });
 
-      setState(() {
-        scanProgress += 0.02;
-        if (scanProgress >= 1.0) {
-          scanProgress = 1.0;
-          isScanning = false;
-          timer.cancel();
-          _onScanComplete();
+          if (scan_done) {
+            timer.cancel();
+            _onScanComplete();
+          }
+        } else {
+          debugPrint('Erreur lors de la récupération du statut du scan: ${response.statusCode} - ${response.body}');
         }
+      }).catchError((e) {
+        debugPrint('Erreur lors de la récupération du statut du scan: $e');
       });
     });
   }
-
   void _onScanComplete() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -616,14 +647,14 @@ class _LiveDisabledState extends State<LiveDisabled> {
                     if (isScanning) ...[
                       const SizedBox(height: 16),
                       LinearProgressIndicator(
-                        value: scanProgress,
+                        value: scanProgress*100/3,
                         backgroundColor: Colors.grey[700],
                         valueColor: const AlwaysStoppedAnimation<Color>(
                             Color(0xFF10B981)),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Scan en cours... ${(scanProgress)}%',
+                        'Scan en cours... ${(scanProgress*100/3)}%',
                         style: const TextStyle(color: Colors.white),
                       ),
                     ],
