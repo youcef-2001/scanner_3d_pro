@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
 
-const String baseUrl = 'http://192.168.13.1:80'; // ajuste selon ton réseau
+const String baseUrl = 'http://192.168.13.1:80';
 
 class LiveDisabled extends StatefulWidget {
   const LiveDisabled({Key? key}) : super(key: key);
@@ -22,11 +22,20 @@ class _LiveDisabledState extends State<LiveDisabled> {
   bool isConnecting = false;
   bool isLaserOn = false;
   bool isScanning = false;
-  int scanProgress = 0;// sera le scan step du backend
+  int scanProgress = 0;
   bool scan_done = false;
   String width_camera = '';
   String height_camera = '';
   double distance = 0.0;
+
+  // Variables pour les contrôles RGB
+  double redValue = 1.0;
+  double greenValue = 1.0;
+  double blueValue = 1.0;
+  double brightness = 1.0;
+  double contrast = 1.0;
+  double saturation = 1.0;
+  bool showRgbControls = false;
 
   // Nouvelles variables pour la gestion de la caméra
   String cameraConnectionStatus = 'Vérification...';
@@ -51,12 +60,238 @@ class _LiveDisabledState extends State<LiveDisabled> {
     super.dispose();
   }
 
+  // === GESTION DES FILTRES RGB ===
+  Future<void> _updateRgbFilters() async {
+    if (!isCameraConnected || !isDeviceConnected) return;
+
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      final token = session?.accessToken;
+
+      if (token == null) return;
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/camera/rgb-filter'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'red': redValue,
+          'green': greenValue,
+          'blue': blueValue,
+          'brightness': brightness,
+          'contrast': contrast,
+          'saturation': saturation,
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        debugPrint('Erreur mise à jour filtres RGB: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Erreur lors de la mise à jour des filtres RGB: $e');
+    }
+  }
+
+  void _resetRgbFilters() {
+    setState(() {
+      redValue = 1.0;
+      greenValue = 1.0;
+      blueValue = 1.0;
+      brightness = 1.0;
+      contrast = 1.0;
+      saturation = 1.0;
+    });
+    _updateRgbFilters();
+  }
+
+  void _showRgbControlsDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF2A2A2A),
+              title: Text(
+                'Contrôles RGB',
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Rouge
+                      _buildSliderControl(
+                        'Rouge',
+                        redValue,
+                        Colors.red,
+                        (value) {
+                          setDialogState(() => redValue = value);
+                          setState(() => redValue = value);
+                          _updateRgbFilters();
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Vert
+                      _buildSliderControl(
+                        'Vert',
+                        greenValue,
+                        Colors.green,
+                        (value) {
+                          setDialogState(() => greenValue = value);
+                          setState(() => greenValue = value);
+                          _updateRgbFilters();
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Bleu
+                      _buildSliderControl(
+                        'Bleu',
+                        blueValue,
+                        Colors.blue,
+                        (value) {
+                          setDialogState(() => blueValue = value);
+                          setState(() => blueValue = value);
+                          _updateRgbFilters();
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Luminosité
+                      _buildSliderControl(
+                        'Luminosité',
+                        brightness,
+                        Colors.yellow,
+                        (value) {
+                          setDialogState(() => brightness = value);
+                          setState(() => brightness = value);
+                          _updateRgbFilters();
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Contraste
+                      _buildSliderControl(
+                        'Contraste',
+                        contrast,
+                        Colors.grey,
+                        (value) {
+                          setDialogState(() => contrast = value);
+                          setState(() => contrast = value);
+                          _updateRgbFilters();
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Saturation
+                      _buildSliderControl(
+                        'Saturation',
+                        saturation,
+                        Colors.purple,
+                        (value) {
+                          setDialogState(() => saturation = value);
+                          setState(() => saturation = value);
+                          _updateRgbFilters();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    _resetRgbFilters();
+                    setDialogState(() {});
+                  },
+                  child: const Text(
+                    'Réinitialiser',
+                    style: TextStyle(color: Colors.orange),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text(
+                    'Fermer',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildSliderControl(String label, double value, Color color, Function(double) onChanged) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                value.toStringAsFixed(2),
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            activeTrackColor: color,
+            inactiveTrackColor: color.withOpacity(0.3),
+            thumbColor: color,
+            overlayColor: color.withOpacity(0.2),
+            trackHeight: 4,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+          ),
+          child: Slider(
+            value: value,
+            min: 0.0,
+            max: 2.0,
+            divisions: 100,
+            onChanged: onChanged,
+          ),
+        ),
+      ],
+    );
+  }
+
   int i = 0;
   // === GESTION CAMERA ===
   Future<void> _initializeCamera() async {
     await _checkCameraStatus();
   }
-  
 
   Future<void> _checkCameraStatus() async {
     try {
@@ -70,7 +305,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
         setState(() {
           isCameraConnected = data['connected'] ?? false;
           cameraConnectionStatus = data['status'] ?? 'unknown';
-          final resolution = data['resolution'] ;
+          final resolution = data['resolution'];
           if (resolution != 'N/A') {
             final parts = resolution.split('X');
             if (parts.length == 2) {
@@ -102,7 +337,6 @@ class _LiveDisabledState extends State<LiveDisabled> {
         cameraConnectionStatus =
             'Reconnexion... (${_cameraRetryCount + 1}/$maxCameraRetries)';
         _cameraRetryCount++;
-        // Retry after a delay
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) _checkCameraStatus();
         });
@@ -130,7 +364,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
     await _initializeCamera();
   }
 
-  // === GESTION DEVICE (code existant) ===
+  // === GESTION DEVICE ===
   Future<void> connectDevice() async {
     setState(() => isConnecting = true);
 
@@ -158,7 +392,6 @@ class _LiveDisabledState extends State<LiveDisabled> {
           isLaserOn = (json['laser'] == 'on');
         });
 
-        // Démarrer la vérification de la caméra après connexion du device
         await _initializeCamera();
       } else {
         debugPrint('Erreur connectDevice : ${res.body}');
@@ -246,15 +479,6 @@ class _LiveDisabledState extends State<LiveDisabled> {
     }
   }
 
-
-  // === GESTION ACQUISITION ===
-  // Cette fonction démarre l'acquisition du scan 3D
-  // Elle envoie une requête POST à l'API pour démarrer l'acquisition
-  // et gère le progrès du scan en utilisant un Timer pour simuler le progrès
-  // et afficher une barre de progression
-  // Elle gère également les erreurs et l'état de la caméra
-  // et affiche des messages appropriés à l'utilisateur
-
   Future<void> startAcquisition() async {
     if (!isCameraConnected) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -290,8 +514,8 @@ class _LiveDisabledState extends State<LiveDisabled> {
           "device": "scanner_3d_pro",
           "distance": distance.toString(),
           "userid": Supabase.instance.client.auth.currentUser?.id,
-          "username": Supabase.instance.client.auth.currentUser?.userMetadata?['name'] ?? Supabase.instance.client.auth.currentUser?.email ?? 'Utilisateur',
-
+          "username": Supabase.instance.client.auth.currentUser?.userMetadata?['name'] ?? 
+                     Supabase.instance.client.auth.currentUser?.email ?? 'Utilisateur',
         }),
       );
 
@@ -299,7 +523,6 @@ class _LiveDisabledState extends State<LiveDisabled> {
         final data = jsonDecode(res.body);
         debugPrint('Acquisition lancée: ${data['message']}');
 
-        //  Timer pour suivre le progrès du scan
         _ScanProgress();
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -328,10 +551,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
     }
   }
 
-  // === GESTION TFLuna ===
-  // Cette fonction récupère la distance mesurée par le capteur TFLuna
-  Future<void>_GetTFLunaDistance() async {
-    // send a Http request in GET to @app.route('/tfluna/read', methods=['GET'])
+  Future<void> _GetTFLunaDistance() async {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/tfluna/read'),
@@ -351,7 +571,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
     }
   }
 
-    void _startDistanceChecking() {
+  void _startDistanceChecking() {
     _TFLunaTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted && isDeviceConnected) {
         _GetTFLunaDistance();
@@ -359,18 +579,13 @@ class _LiveDisabledState extends State<LiveDisabled> {
     });
   }
 
-
-
   void _ScanProgress() {
     Timer.periodic(const Duration(milliseconds: 200), (timer) {
       if (!mounted || !isScanning) {
         timer.cancel();
         return;
       }
-       // fait une requet vers le backend pour avoir le step et le statut du scan
-      /*"status": is_acquisition_running,
-                    "step" : acquisition_step if is_acquisition_running else 0,
-                    "ackDone": ackDone if is_acquisition_running else False*/
+
       http.get(Uri.parse('$baseUrl/acquisition-status')).then((response) {
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
@@ -392,6 +607,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
       });
     });
   }
+
   void _onScanComplete() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -401,11 +617,10 @@ class _LiveDisabledState extends State<LiveDisabled> {
     );
   }
 
-  // === WIDGET CAMERA STREAM ===
   Widget _buildCameraStream() {
     if (!isDeviceConnected) {
       return Container(
-        width: MediaQuery.of(context).size.width ,
+        width: MediaQuery.of(context).size.width,
         height: MediaQuery.of(context).size.height * 0.52,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
@@ -415,7 +630,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.device_hub_outlined, size:70, color: Colors.grey),
+              Icon(Icons.device_hub_outlined, size: 70, color: Colors.grey),
               SizedBox(height: 20),
               Text(
                 'Connectez votre device',
@@ -429,7 +644,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
 
     if (!isCameraConnected) {
       return Container(
-        width: MediaQuery.of(context).size.width ,
+        width: MediaQuery.of(context).size.width,
         height: MediaQuery.of(context).size.height * 0.52,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
@@ -473,29 +688,55 @@ class _LiveDisabledState extends State<LiveDisabled> {
       );
     }
 
-    return SizedBox(
-      width: MediaQuery.of(context).size.width,
-      height: MediaQuery.of(context).size.height * 0.52,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          decoration: BoxDecoration(
+    return Stack(
+      children: [
+        SizedBox(
+          width: MediaQuery.of(context).size.width,
+          height: MediaQuery.of(context).size.height * 0.52,
+          child: ClipRRect(
             borderRadius: BorderRadius.circular(20),
-            color: Colors.grey[800],
-          ),
-          child: AspectRatio(
-            aspectRatio: 1.0, // Format carré pour 1280x1280
-            child: CameraStreamPage(myurl: '$baseUrl/camera/video_feed'),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                color: Colors.grey[800],
+              ),
+              child: AspectRatio(
+                aspectRatio: 1.0,
+                child: CameraStreamPage(myurl: '$baseUrl/camera/video_feed'),
+              ),
+            ),
           ),
         ),
-      ),
+        // Bouton RGB flottant
+        Positioned(
+          right: 16,
+          top: 16,
+          child: GestureDetector(
+            onTap: _showRgbControlsDialog,
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.7),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white.withOpacity(0.3)),
+              ),
+              child: const Icon(
+                Icons.palette,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final user = Supabase.instance.client.auth.currentUser;
-    final userName =user?.userMetadata?['name'] ?? user?.email ?? 'Utilisateur';
+    final userName = user?.userMetadata?['name'] ?? user?.email ?? 'Utilisateur';
 
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A1A),
@@ -509,60 +750,56 @@ class _LiveDisabledState extends State<LiveDisabled> {
           style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 16),
         ),
         actions: [
-          
           Flexible(
-                    flex: 2,
-                    child: GestureDetector(
-                      onTap: connectOrDisconnectDevice,
-                      child: Container(
-                        constraints: const BoxConstraints(maxWidth: 200),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10),
-                          color: isDeviceConnected
-                              ? const Color(0xFF10B981)
-                              : isConnecting
-                                  ? const Color(0xFFFF9800)
-                                  : const Color(0xFFEF4444),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 9),
-                            margin: const EdgeInsets.only(right: 20),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            isConnecting
-                                ? const SizedBox(
-                                    width: 12,
-                                    height: 12,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.white),
-                                    ),
-                                  )
-                                : const Icon(Icons.circle,
-                                    size: 8, color: Colors.white),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
-                                isConnecting
-                                    ? 'Connecting...'
-                                    : isDeviceConnected
-                                        ? 'Disconnect'
-                                        : 'Connect Device',
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
+            flex: 2,
+            child: GestureDetector(
+              onTap: connectOrDisconnectDevice,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 200),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  color: isDeviceConnected
+                      ? const Color(0xFF10B981)
+                      : isConnecting
+                          ? const Color(0xFFFF9800)
+                          : const Color(0xFFEF4444),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                margin: const EdgeInsets.only(right: 20),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    isConnecting
+                        ? const SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
-                          ],
+                          )
+                        : const Icon(Icons.circle, size: 8, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        isConnecting
+                            ? 'Connecting...'
+                            : isDeviceConnected
+                                ? 'Disconnect'
+                                : 'Connect Device',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
-                  ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
       body: SafeArea(
@@ -571,18 +808,16 @@ class _LiveDisabledState extends State<LiveDisabled> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-
-              // === SECTION CAMERA (améliorée) ===
+              // === SECTION CAMERA ===
               Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
                   color: const Color(0xFF2A2A2A),
                 ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
                 child: Column(
                   children: [
-                    // Flux vidéo
+                    // Flux vidéo avec bouton RGB
                     SizedBox(
                       width: double.infinity,
                       child: _buildCameraStream(),
@@ -590,7 +825,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
 
                     const SizedBox(height: 8),
 
-                    // Status de la caméra avec indicateur
+                    // Status de la caméra
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -633,7 +868,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
                       !isDeviceConnected
                           ? 'Connectez votre device pour commencer'
                           : isCameraConnected
-                              ? 'Résolution: ${width_camera+"x"+height_camera} - Distance TF Luna: ${distance} cm '
+                              ? 'Résolution: ${width_camera + "x" + height_camera} - Distance TF Luna: ${distance} cm '
                               : 'En attente de connexion caméra...',
                       style: const TextStyle(
                         color: Color.fromARGB(255, 173, 170, 170),
@@ -647,14 +882,13 @@ class _LiveDisabledState extends State<LiveDisabled> {
                     if (isScanning) ...[
                       const SizedBox(height: 16),
                       LinearProgressIndicator(
-                        value: scanProgress*100/3,
+                        value: scanProgress * 100 / 3,
                         backgroundColor: Colors.grey[700],
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                            Color(0xFF10B981)),
+                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Scan en cours... ${(scanProgress*100/3)}%',
+                        'Scan en cours... ${(scanProgress * 100 / 3)}%',
                         style: const TextStyle(color: Colors.white),
                       ),
                     ],
@@ -688,9 +922,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
                           children: [
                             Icon(
                               isLaserOn ? Icons.light_mode : Icons.block,
-                              color: isDeviceConnected
-                                  ? Colors.white
-                                  : Colors.grey,
+                              color: isDeviceConnected ? Colors.white : Colors.grey,
                             ),
                             const SizedBox(width: 6),
                             Text(
@@ -719,15 +951,15 @@ class _LiveDisabledState extends State<LiveDisabled> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
-                            color: (isDeviceConnected &&
-                                isCameraConnected &&
-                                isScanning)
-                              ? const Color(0xFF10B981) // Vert pendant le scan
-                              : (isDeviceConnected &&
-                                isCameraConnected &&
-                                !isScanning)
-                                ? const Color(0xFFEF4444)
-                                : const Color(0xFF1A1A1A),
+                          color: (isDeviceConnected &&
+                              isCameraConnected &&
+                              isScanning)
+                            ? const Color(0xFF10B981) // Vert pendant le scan
+                            : (isDeviceConnected &&
+                              isCameraConnected &&
+                              !isScanning)
+                              ? const Color(0xFFEF4444)
+                              : const Color(0xFF1A1A1A),
                           borderRadius: BorderRadius.circular(8),
                           border: !(isDeviceConnected &&
                                   isCameraConnected &&
@@ -739,13 +971,13 @@ class _LiveDisabledState extends State<LiveDisabled> {
                           child: Text(
                             isScanning ? 'Scanning...' : 'Start Scan',
                             style: TextStyle(
-                                color: isScanning
-                                  ?  Colors.white
-                                  : (isDeviceConnected &&
-                                    isCameraConnected &&
-                                    !isScanning)
-                                    ? Colors.white
-                                    : Colors.grey,
+                              color: isScanning
+                                ? Colors.white
+                                : (isDeviceConnected &&
+                                  isCameraConnected &&
+                                  !isScanning)
+                                  ? Colors.white
+                                  : Colors.grey,
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
                             ),
