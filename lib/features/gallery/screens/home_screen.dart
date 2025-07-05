@@ -61,7 +61,6 @@ class _LiveDisabledState extends State<LiveDisabled> {
   @override
   void initState() {
     super.initState();
-    _initializeCamera();
     _startCameraStatusChecking();
     _startDistanceChecking();
   }
@@ -665,13 +664,36 @@ class _LiveDisabledState extends State<LiveDisabled> {
       }
     });
   }
-
+/**handle camera feed
+ *  generate_mjpeg(camera_manager=camera),
+            mimetype='multipart/x-mixed-replace; boundary=frame',
+            headers={
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+                'Connection': 'keep-alive'
+ */
   Future<void> _retryCameraConnection() async {
-    setState(() {
-      _cameraRetryCount = 0;
-      _lastCameraError = null;
-    });
-    await _initializeCamera();
+
+     try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/camera/video_feed'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        setState(() {
+          isCameraConnected = true;
+          cameraConnectionStatus = 'Connecté';
+          _cameraRetryCount = 0;
+          _lastCameraError = null;
+        });
+        debugPrint('Caméra reconnectée avec succès');
+      } else {
+        _handleCameraConnectionError('Statut HTTP: ${response.statusCode}');
+      }
+    } catch (e) {
+      _handleCameraConnectionError('Erreur de reconnexion caméra: $e'); 
+    }
   }
 
   // === GESTION DEVICE ===
@@ -979,7 +1001,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
                 style: const TextStyle(color: Colors.grey, fontSize: 12),
                 textAlign: TextAlign.center,
               ),
-              if (_cameraRetryCount >= maxCameraRetries) ...[
+              ...[
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: _retryCameraConnection,
