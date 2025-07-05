@@ -29,12 +29,25 @@ class _LiveDisabledState extends State<LiveDisabled> {
   double distance = 0.0;
 
   // Variables pour les contrôles RGB
-  double redValue = 1.0;
-  double greenValue = 1.0;
-  double blueValue = 1.0;
-  double brightness = 1.0;
-  double contrast = 1.0;
-  double saturation = 1.0;
+  // RGB Low
+  int redLow = 0;
+  int greenLow = 0;
+  int blueLow = 0;
+
+  // HSV Low
+  int hueLow = 0;
+  int saturationLow = 0;
+  int valueLow = 0;
+
+  // RGB High
+  int redHigh = 255;
+  int greenHigh = 255;
+  int blueHigh = 255;
+
+  // HSV High
+  int hueHigh = 179;
+  int saturationHigh = 255;
+  int valueHigh = 255;
   bool showRgbControls = false;
 
   // Nouvelles variables pour la gestion de la caméra
@@ -77,12 +90,22 @@ class _LiveDisabledState extends State<LiveDisabled> {
           'Authorization': 'Bearer $token',
         },
         body: jsonEncode({
-          'red': redValue,
-          'green': greenValue,
-          'blue': blueValue,
-          'brightness': brightness,
-          'contrast': contrast,
-          'saturation': saturation,
+         // RGB Low
+          'redLow': redLow,
+          'greenLow': greenLow,
+          'blueLow': blueLow,
+          // HSV Low
+          'hueLow': hueLow,
+          'saturationLow': saturationLow,
+          'valueLow': valueLow,
+          // RGB High
+          'redHigh': redHigh,
+          'greenHigh': greenHigh,
+          'blueHigh': blueHigh,
+          // HSV High
+          'hueHigh': hueHigh,
+          'saturationHigh': saturationHigh,
+          'valueHigh': valueHigh,
         }),
       );
 
@@ -92,140 +115,427 @@ class _LiveDisabledState extends State<LiveDisabled> {
     } catch (e) {
       debugPrint('Erreur lors de la mise à jour des filtres RGB: $e');
     }
+    finally {
+      //eviter de faire trop de requêtes sleep
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
   }
 
   void _resetRgbFilters() {
     setState(() {
-      redValue = 1.0;
-      greenValue = 1.0;
-      blueValue = 1.0;
-      brightness = 1.0;
-      contrast = 1.0;
-      saturation = 1.0;
+    // RGB Low
+          redLow = 0;
+         greenLow = 0;
+         blueLow = 0;
+          // HSV Low
+      hueLow = 0;
+         saturationLow = 0;
+     valueLow = 0;
+          // RGB High
+        redHigh = 255;
+         greenHigh = 255;
+       blueHigh = 255;
+          // HSV High
+        hueHigh = 255;
+           saturationHigh = 255;
+           valueHigh = 255;
     });
     _updateRgbFilters();
   }
 
   void _showRgbControlsDialog() {
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF2A2A2A),
-              title: Text(
-                'Contrôles RGB',
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.4,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            bool isRgbMode = showRgbControls;
+            return StatefulBuilder(
+              builder: (context, setDialogState) {
+                // Helper for slider
+                Widget buildIntSlider({
+                  required String label,
+                  required int value,
+                  required int min,
+                  required int max,
+                  required Color color,
+                  required ValueChanged<int> onChanged,
+                }) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Rouge
-                      _buildSliderControl(
-                        'Rouge',
-                        redValue,
-                        Colors.red,
-                        (value) {
-                          setDialogState(() => redValue = value);
-                          setState(() => redValue = value);
-                          _updateRgbFilters();
-                        },
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            label,
+                            style: TextStyle(
+                              color: color,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: color.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              value.toString(),
+                              style: TextStyle(
+                                color: color,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      
-                      // Vert
-                      _buildSliderControl(
-                        'Vert',
-                        greenValue,
-                        Colors.green,
-                        (value) {
-                          setDialogState(() => greenValue = value);
-                          setState(() => greenValue = value);
-                          _updateRgbFilters();
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Bleu
-                      _buildSliderControl(
-                        'Bleu',
-                        blueValue,
-                        Colors.blue,
-                        (value) {
-                          setDialogState(() => blueValue = value);
-                          setState(() => blueValue = value);
-                          _updateRgbFilters();
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Luminosité
-                      _buildSliderControl(
-                        'Luminosité',
-                        brightness,
-                        Colors.yellow,
-                        (value) {
-                          setDialogState(() => brightness = value);
-                          setState(() => brightness = value);
-                          _updateRgbFilters();
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Contraste
-                      _buildSliderControl(
-                        'Contraste',
-                        contrast,
-                        Colors.grey,
-                        (value) {
-                          setDialogState(() => contrast = value);
-                          setState(() => contrast = value);
-                          _updateRgbFilters();
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Saturation
-                      _buildSliderControl(
-                        'Saturation',
-                        saturation,
-                        Colors.purple,
-                        (value) {
-                          setDialogState(() => saturation = value);
-                          setState(() => saturation = value);
-                          _updateRgbFilters();
+                      Slider(
+                        value: value.toDouble(),
+                        min: min.toDouble(),
+                        max: max.toDouble(),
+                        divisions: max - min,
+                        activeColor: color,
+                        inactiveColor: color.withOpacity(0.2),
+                        onChanged: (v) {
+                          onChanged(v.round());
                         },
                       ),
                     ],
+                  );
+                }
+
+                Widget rgbSliders() => Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          "RGB",
+                          style: GoogleFonts.poppins(
+                            color: Colors.red[200],
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        buildIntSlider(
+                          label: "Rouge Min",
+                          value: redLow,
+                          min: 0,
+                          max: 255,
+                          color: Colors.red,
+                          onChanged: (v) {
+                            setDialogState(() => redLow = v);
+                            setState(() => redLow = v);
+                            _updateRgbFilters();
+                          },
+                        ),
+                        buildIntSlider(
+                          label: "Vert Min",
+                          value: greenLow,
+                          min: 0,
+                          max: 255,
+                          color: Colors.green,
+                          onChanged: (v) {
+                            setDialogState(() => greenLow = v);
+                            setState(() => greenLow = v);
+                            _updateRgbFilters();
+                          },
+                        ),
+                        buildIntSlider(
+                          label: "Bleu Min",
+                          value: blueLow,
+                          min: 0,
+                          max: 255,
+                          color: Colors.blue,
+                          onChanged: (v) {
+                            setDialogState(() => blueLow = v);
+                            setState(() => blueLow = v);
+                            _updateRgbFilters();
+                          },
+                        ),
+                        const Divider(color: Colors.white24, height: 24),
+                        buildIntSlider(
+                          label: "Rouge Max",
+                          value: redHigh,
+                          min: 0,
+                          max: 255,
+                          color: Colors.redAccent,
+                          onChanged: (v) {
+                            setDialogState(() => redHigh = v);
+                            setState(() => redHigh = v);
+                            _updateRgbFilters();
+                          },
+                        ),
+                        buildIntSlider(
+                          label: "Vert Max",
+                          value: greenHigh,
+                          min: 0,
+                          max: 255,
+                          color: Colors.greenAccent,
+                          onChanged: (v) {
+                            setDialogState(() => greenHigh = v);
+                            setState(() => greenHigh = v);
+                            _updateRgbFilters();
+                          },
+                        ),
+                        buildIntSlider(
+                          label: "Bleu Max",
+                          value: blueHigh,
+                          min: 0,
+                          max: 255,
+                          color: Colors.lightBlueAccent,
+                          onChanged: (v) {
+                            setDialogState(() => blueHigh = v);
+                            setState(() => blueHigh = v);
+                            _updateRgbFilters();
+                          },
+                        ),
+                      ],
+                    );
+
+                Widget hsvSliders() => Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          "HSV",
+                          style: GoogleFonts.poppins(
+                            color: Colors.orange[200],
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        buildIntSlider(
+                          label: "Teinte Min",
+                          value: hueLow,
+                          min: 0,
+                          max: 255,
+                          color: Colors.deepOrange,
+                          onChanged: (v) {
+                            setDialogState(() => hueLow = v);
+                            setState(() => hueLow = v);
+                            _updateRgbFilters();
+                          },
+                        ),
+                        buildIntSlider(
+                          label: "Saturation Min",
+                          value: saturationLow,
+                          min: 0,
+                          max: 255,
+                          color: Colors.purple,
+                          onChanged: (v) {
+                            setDialogState(() => saturationLow = v);
+                            setState(() => saturationLow = v);
+                            _updateRgbFilters();
+                          },
+                        ),
+                        buildIntSlider(
+                          label: "Valeur Min",
+                          value: valueLow,
+                          min: 0,
+                          max: 255,
+                          color: Colors.yellow[700]!,
+                          onChanged: (v) {
+                            setDialogState(() => valueLow = v);
+                            setState(() => valueLow = v);
+                            _updateRgbFilters();
+                          },
+                        ),
+                        const Divider(color: Colors.white24, height: 24),
+                        buildIntSlider(
+                          label: "Teinte Max",
+                          value: hueHigh,
+                          min: 0,
+                          max: 255,
+                          color: Colors.deepOrangeAccent,
+                          onChanged: (v) {
+                            setDialogState(() => hueHigh = v);
+                            setState(() => hueHigh = v);
+                            _updateRgbFilters();
+                          },
+                        ),
+                        buildIntSlider(
+                          label: "Saturation Max",
+                          value: saturationHigh,
+                          min: 0,
+                          max: 255,
+                          color: Colors.purpleAccent,
+                          onChanged: (v) {
+                            setDialogState(() => saturationHigh = v);
+                            setState(() => saturationHigh = v);
+                            _updateRgbFilters();
+                          },
+                        ),
+                        buildIntSlider(
+                          label: "Valeur Max",
+                          value: valueHigh,
+                          min: 0,
+                          max: 255,
+                          color: Colors.amberAccent,
+                          onChanged: (v) {
+                            setDialogState(() => valueHigh = v);
+                            setState(() => valueHigh = v);
+                            _updateRgbFilters();
+                          },
+                        ),
+                      ],
+                    );
+
+                return Container(
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF23272F),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                   ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    _resetRgbFilters();
-                    setDialogState(() {});
-                  },
-                  child: const Text(
-                    'Réinitialiser',
-                    style: TextStyle(color: Colors.orange),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Drag handle
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: Container(
+                          width: 50,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[700],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                      // Title and mode switch
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.palette, color: Colors.orange, size: 26),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Réglages Filtres Couleur',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ),
+                            // Mode switch button
+                            GestureDetector(
+                              onTap: () {
+                                setDialogState(() {
+                                  showRgbControls = !showRgbControls;
+                                });
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 250),
+                                width: 70,
+                                height: 34,
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: showRgbControls
+                                      ? Colors.red[300]
+                                      : Colors.orange[300],
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.15),
+                                      blurRadius: 4,
+                                    ),
+                                  ],
+                                ),
+                                child: Stack(
+                                  children: [
+                                    Align(
+                                      alignment: showRgbControls
+                                          ? Alignment.centerLeft
+                                          : Alignment.centerRight,
+                                      child: Container(
+                                        width: 26,
+                                        height: 26,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          showRgbControls
+                                              ? Icons.color_lens
+                                              : Icons.gradient,
+                                          color: showRgbControls
+                                              ? Colors.red[300]
+                                              : Colors.orange[300],
+                                          size: 18,
+                                        ),
+                                      ),
+                                    ),
+                                    Align(
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        showRgbControls ? "RGB" : "HSV",
+                                        style: TextStyle(
+                                          color: Colors.black87,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          controller: scrollController,
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                          child: showRgbControls ? rgbSliders() : hsvSliders(),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                _resetRgbFilters();
+                                setDialogState(() {});
+                              },
+                              child: const Text(
+                                'Réinitialiser',
+                                style: TextStyle(
+                                    color: Colors.orange,
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text(
+                                'Fermer',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text(
-                    'Fermer',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ],
+                );
+              },
             );
           },
         );
@@ -882,13 +1192,13 @@ class _LiveDisabledState extends State<LiveDisabled> {
                     if (isScanning) ...[
                       const SizedBox(height: 16),
                       LinearProgressIndicator(
-                        value: scanProgress * 100 / 3,
+                        value: scanProgress/4,
                         backgroundColor: Colors.grey[700],
                         valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Scan en cours... ${(scanProgress * 100 / 3)}%',
+                        'Scan en cours... ${(scanProgress * 100 / 4).toStringAsFixed(0)}%',
                         style: const TextStyle(color: Colors.white),
                       ),
                     ],
