@@ -1201,7 +1201,7 @@ class _LiveDisabledState extends State<LiveDisabled> {
                           ? 'Connectez votre device pour commencer'
                           : isCameraConnected
                               ? 'Résolution: ${width_camera + "x" + height_camera} - Distance TF Luna: ${distance} cm '
-                              : 'En attente de connexion caméra...',
+                              : 'En attente de connexion caméra.. - Distance TF Luna: ${distance} cm',
                       style: const TextStyle(
                         color: Color.fromARGB(255, 173, 170, 170),
                         fontSize: 14,
@@ -1276,7 +1276,6 @@ class _LiveDisabledState extends State<LiveDisabled> {
                   Expanded(
                     child: GestureDetector(
                       onTap: (isDeviceConnected &&
-                              isCameraConnected &&
                               !isScanning)
                           ? startAcquisition
                           : null,
@@ -1284,17 +1283,17 @@ class _LiveDisabledState extends State<LiveDisabled> {
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
                           color: (isDeviceConnected &&
-                              isCameraConnected &&
+                              
                               isScanning)
                             ? const Color(0xFF10B981) // Vert pendant le scan
                             : (isDeviceConnected &&
-                              isCameraConnected &&
+                              
                               !isScanning)
                               ? const Color(0xFFEF4444)
                               : const Color(0xFF1A1A1A),
                           borderRadius: BorderRadius.circular(8),
                           border: !(isDeviceConnected &&
-                                  isCameraConnected &&
+                                  
                                   !isScanning)
                               ? Border.all(color: Colors.grey[600]!)
                               : null,
@@ -1306,7 +1305,6 @@ class _LiveDisabledState extends State<LiveDisabled> {
                               color: isScanning
                                 ? Colors.white
                                 : (isDeviceConnected &&
-                                  isCameraConnected &&
                                   !isScanning)
                                   ? Colors.white
                                   : Colors.grey,
